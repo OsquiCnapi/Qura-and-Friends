@@ -1,0 +1,42 @@
+/**
+ * Tokens del design system (Tailwind v4, config CSS-first). Importar en apps/web/globals.css tras
+ * `@import "tailwindcss"`. Paleta "cuántica" pensada para ser accesible (contraste AA) y segura para
+ * daltonismo — importante en los minijuegos de color de la Categoría 3 (interferencia).
+ */
+@theme {
+  /* Marca / superficie */
+  --color-quantum-bg: #0b1020;
+  --color-quantum-surface: #141a2e;
+  --color-quantum-surface-2: #1e263f;
+  --color-quantum-border: #2b3350;
+  --color-quantum-text: #e6e9f0;
+  --color-quantum-muted: #9aa4b2;
+
+  /* Acentos por concepto (categorías del tablero) */
+  --color-superposition: #8b5cf6; /* violeta */
+  --color-entanglement: #22d3ee; /* cian */
+  --color-interference: #f59e0b; /* ámbar */
+  --color-annealing: #ef4444; /* rojo (energía) */
+
+  /* Estado cuántico (esfera de Bloch) */
+  --color-state-vector: #ff4d6d;
+  --color-bloch-axis: #5b6472;
+  --color-bloch-pole: #3b82f6;
+
+  /* Jugadores (hotseat) */
+  --color-player-1: #38bdf8; /* Alicia */
+  --color-player-2: #fb7185; /* Conejo Blanco */
+
+  --radius-quantum: 0.75rem;
+  --font-display: "Cinzel", ui-serif, serif;
+}
+
+/* Respeto por reduced-motion en toda la app */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

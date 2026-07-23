@@ -1,0 +1,32 @@
+{
+  "name": "@quantum-party/quantum-viz",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Visualizaciones cuánticas en React Three Fiber: esfera de Bloch animada, compuertas como rotaciones (quaternion slerp), círculo unidad 2D y paisaje de energía. Reimplementa en web las figuras estáticas de QuTiP/matplotlib de qsilver_docs/qbronze_docs.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rimraf dist .turbo"
+  },
+  "peerDependencies": {
+    "@react-three/drei": ">=10",
+    "@react-three/fiber": ">=9",
+    "react": ">=19",
+    "three": ">=0.171"
+  },
+  "devDependencies": {
+    "@react-three/drei": "^10.0.0",
+    "@react-three/fiber": "^9.0.0",
+    "@types/react": "^19.0.0",
+    "@types/three": "^0.171.0",
+    "react": "^19.0.0",
+    "three": "^0.171.0",
+    "typescript": "^5.7.2"
+  }
+}

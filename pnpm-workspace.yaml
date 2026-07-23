@@ -1,0 +1,5 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "services/*"
+# NOTA: supabase/functions NO se lista: son Deno, no comparten node_modules del workspace pnpm.

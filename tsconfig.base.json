@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "@quantum-party/quantum-engine": ["./packages/quantum-engine/src/index.ts"],
+      "@quantum-party/quantum-engine/annealing": ["./packages/quantum-engine/src/annealing/index.ts"],
+      "@quantum-party/game-core": ["./packages/game-core/src/index.ts"],
+      "@quantum-party/quantum-viz": ["./packages/quantum-viz/src/index.ts"],
+      "@quantum-party/curriculum": ["./packages/curriculum/src/index.ts"],
+      "@quantum-party/schemas": ["./packages/schemas/src/index.ts"],
+      "@quantum-party/ui": ["./packages/ui/src/index.ts"]
+    }
+  }
+}

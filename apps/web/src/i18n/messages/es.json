@@ -1,0 +1,51 @@
+{
+  "app": {
+    "title": "Quantum Party",
+    "subtitle": "Aprende computación cuántica jugando en el País de las Maravillas",
+    "play": "Jugar",
+    "board": "Ir al tablero",
+    "lab": "Laboratorio cuántico",
+    "loading": "Cargando el sueño cuántico…"
+  },
+  "landing": {
+    "hero": "Dos jugadores. Un tablero imposible. Física cuántica de verdad.",
+    "description": "Recorre un tablero por turnos donde cada casilla es un minijuego que enseña un concepto cuántico real: superposición, entrelazamiento, interferencia y optimización por recocido. Empieza fácil y llega hasta el temple cuántico.",
+    "startLocal": "Partida local (2 jugadores)",
+    "openLab": "Abrir laboratorio"
+  },
+  "characters": {
+    "alicia": "Alicia",
+    "conejo": "Conejo Blanco"
+  },
+  "minigames": {
+    "catRace": {
+      "title": "La Carrera del Gato",
+      "tagline": "Superposición contra la Reina",
+      "howto": "Mantén ESPACIO (P1) o ↑ (P2) para entrar en superposición y atravesar obstáculos. ¡Pero cuidado: la Coherencia se agota y el sistema te medirá!",
+      "concept": "Superposición y colapso por medición"
+    }
+  },
+  "hud": {
+    "coherence": "Coherencia",
+    "place": "Puesto",
+    "time": "Tiempo",
+    "scoreboard": "Puntos",
+    "collapsesShort": "Colapsos"
+  },
+  "lab": {
+    "title": "Laboratorio: la esfera de Bloch",
+    "gateApplied": "Compuerta aplicada",
+    "explain": "Cada compuerta es una rotación del vector de estado sobre la esfera. La compuerta H lleva |0⟩ (polo norte) al ecuador |+⟩: superposición perfecta.",
+    "chooseGate": "Elige una compuerta"
+  },
+  "aula": {
+    "title": "Aula (docente)",
+    "comingSoon": "Panel en tiempo real del progreso de los alumnos — próximamente. La ruta y las tablas ya están preparadas para Supabase Realtime."
+  },
+  "results": {
+    "title": "Resultados",
+    "winner": "Ganador",
+    "backToBoard": "Volver al tablero",
+    "collapses": "Colapsos sufridos"
+  }
+}

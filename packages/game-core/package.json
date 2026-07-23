@@ -1,0 +1,26 @@
+{
+  "name": "@quantum-party/game-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Contrato Minigame, registry, game loop de paso fijo, sistema de puntuación y lógica del tablero. TS puro, sin React/three: define QUÉ es un minijuego; apps/web define CÓMO se dibuja.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rimraf dist .turbo coverage"
+  },
+  "dependencies": {
+    "@quantum-party/quantum-engine": "workspace:*",
+    "@quantum-party/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

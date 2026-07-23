@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "@quantum-party/ui/theme.css";
+@import "katex/dist/katex.min.css";
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-quantum-bg);
+  color: var(--color-quantum-text);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  overscroll-behavior: none;
+}
+
+/* El canvas de juego ocupa toda la ventana; el HUD se superpone en HTML. */
+.game-root {
+  position: fixed;
+  inset: 0;
+}
+
+/* ── Aparición de la tarjeta rotativa de info ─────────────────────────────── */
+.quantum-fact {
+  animation: fact-in 0.5s ease-out;
+}
+@keyframes fact-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Celebración del ganador ──────────────────────────────────────────────── */
+.trophy-pop {
+  animation: trophy-pop 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes trophy-pop {
+  0% { opacity: 0; transform: scale(0.2) rotate(-18deg); }
+  60% { transform: scale(1.25) rotate(8deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+.win-title {
+  animation: win-title 0.6s ease-out 0.15s both;
+}
+@keyframes win-title {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Destellos que estallan alrededor del premio */
+.sparkle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  transform-origin: center;
+  animation: sparkle-burst 1.2s ease-out infinite;
+}
+@keyframes sparkle-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateX(0) scale(0.3); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--d)) scale(1); }
+}
+
+/* Confeti cayendo */
+.confetti {
+  position: absolute;
+  top: -12px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confetti-fall linear infinite;
+}
+@keyframes confetti-fall {
+  0% { opacity: 0; transform: translateY(-10vh) rotate(0deg); }
+  10% { opacity: 1; }
+  100% { opacity: 0.9; transform: translateY(105vh) rotate(720deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparkle, .confetti { animation: none; opacity: 0; }
+}

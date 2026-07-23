@@ -1,0 +1,38 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+.next/
+out/
+*.tsbuildinfo
+coverage/
+
+# turbo
+.turbo/
+
+# env
+.env
+.env.local
+.env*.local
+
+# python
+services/**/__pycache__/
+services/**/.venv/
+services/**/.pytest_cache/
+services/**/.ruff_cache/
+*.pyc
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# editor / os
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# assets grandes generados (modelos comprimidos intermedios)
+*.glb.draco.tmp

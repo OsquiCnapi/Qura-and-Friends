@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "allowJs": true,
+    "incremental": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node", "react", "three", "howler"],
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@quantum-party/quantum-engine": ["../../packages/quantum-engine/src/index.ts"],
+      "@quantum-party/quantum-engine/annealing": ["../../packages/quantum-engine/src/annealing/index.ts"],
+      "@quantum-party/game-core": ["../../packages/game-core/src/index.ts"],
+      "@quantum-party/quantum-viz": ["../../packages/quantum-viz/src/index.ts"],
+      "@quantum-party/curriculum": ["../../packages/curriculum/src/index.ts"],
+      "@quantum-party/schemas": ["../../packages/schemas/src/index.ts"],
+      "@quantum-party/ui": ["../../packages/ui/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

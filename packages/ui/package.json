@@ -1,0 +1,30 @@
+{
+  "name": "@quantum-party/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Design system del juego: tokens Tailwind v4 (paleta cuántica accesible) y primitivos de UI/HUD (Button, Panel, Meter, DialogueBox).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme.css": "./src/theme.css"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rimraf dist .turbo"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.2"
+  }
+}

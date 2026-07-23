@@ -1,0 +1,25 @@
+{
+  "name": "@quantum-party/quantum-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Motor de estados cuánticos puro (TS, sin framework). Alineado a las convenciones de qbronze_docs/qsilver_docs: little-endian, ry(2θ), amplitud real (básico) / compleja (avanzado).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./annealing": "./src/annealing/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test:watch": "node --import tsx --test --watch \"tests/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rimraf dist .turbo coverage"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "fast-check": "^3.23.1",
+    "typescript": "^5.7.2"
+  }
+}
