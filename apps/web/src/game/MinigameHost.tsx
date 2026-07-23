@@ -19,6 +19,7 @@ import { getPresentation } from "@/scenes/minigames/presentation.js";
 import { WinnerShowcase } from "@/scenes/minigames/cat-race/WinnerShowcase.js";
 import { useSessionStore } from "@/state/sessionStore.js";
 import { useHudStore } from "@/state/hudStore.js";
+import { useGameControlStore } from "@/state/gameControlStore.js";
 
 /**
  * Audio de victoria por personaje. El orden coincide con RUNNER_MODEL_URLS (slot % 3):
@@ -42,6 +43,9 @@ export function MinigameHost({ minigameId }: { minigameId: string }) {
   const [result, setResult] = useState<MinigameResult | null>(null);
   const winSoundPlayed = useRef(false);
   const clearHud = useHudStore((s) => s.clear);
+  const paused = useGameControlStore((s) => s.paused);
+  const setPaused = useGameControlStore((s) => s.setPaused);
+  const togglePause = useGameControlStore((s) => s.toggle);
 
   // Inicialización síncrona (una vez) para que la escena pueda leer el render state en el primer frame.
   if (!controllerRef.current) {
@@ -62,12 +66,27 @@ export function MinigameHost({ minigameId }: { minigameId: string }) {
   }
 
   useEffect(() => {
+    setPaused(false); // arranca siempre despausado (por si una partida anterior quedó en pausa)
     return () => {
       controllerRef.current?.teardown();
       controllerRef.current = null;
       clearHud();
+      setPaused(false);
     };
-  }, [clearHud]);
+  }, [clearHud, setPaused]);
+
+  // Atajos de teclado para pausar: Escape o P. Se ignora cuando ya hay resultados.
+  useEffect(() => {
+    if (result) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.code === "KeyP") {
+        e.preventDefault();
+        togglePause();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [result, togglePause]);
 
   // Sonido de victoria del personaje ganador. El índice coincide con RUNNER_MODEL_URLS:
   // 0 = gatuna, 1 = tartígrada, 2 = cobraaveja.
@@ -101,48 +120,93 @@ export function MinigameHost({ minigameId }: { minigameId: string }) {
 
         <HudRoot minigameId={minigameId} />
 
-        {result && (
-          <div className="pointer-events-auto absolute inset-0 grid place-items-center overflow-hidden bg-black/70 backdrop-blur-sm">
-            <WinnerCelebration />
-            <Panel className="relative z-10 w-[min(92vw,30rem)] text-center">
-              {/* Personaje ganador animado (modelo .glb saltando y contoneándose) */}
-              {winner && (
-                <div className="trophy-pop relative mx-auto mb-2 h-64 w-full">
-                  <WinnerShowcase slot={winner.slot} color={colorFor(winner.slot)} />
-                </div>
-              )}
-              <div className="win-title mb-1 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-superposition)]">
-                {t("winner")}
+        {/* Botón de pausa (arriba-centro). Oculto cuando ya hay resultados. */}
+        {!result && (
+          <button
+            type="button"
+            onClick={togglePause}
+            aria-label="Pausar"
+            className="pointer-events-auto absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--color-quantum-border)] bg-[var(--color-quantum-surface)]/80 px-4 py-2 text-sm font-semibold text-[var(--color-quantum-text)] backdrop-blur-sm transition-colors hover:bg-[var(--color-quantum-surface-2)]"
+          >
+            <span aria-hidden>⏸</span> Pausa
+          </button>
+        )}
+
+        {/* Overlay de pausa: congela la simulación (ver GameLoop) y ofrece reanudar o salir. */}
+        {paused && !result && (
+          <div className="pointer-events-auto absolute inset-0 z-40 grid place-items-center bg-black/70 backdrop-blur-sm">
+            <Panel className="w-[min(92vw,22rem)] text-center">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-superposition)]">
+                Pausa
               </div>
-              <h2 className="win-title mb-4 text-3xl font-extrabold text-[var(--color-quantum-text)]">
-                {winner ? nameFor(winner.slot) : "—"}
-              </h2>
-              <ul className="mb-5 space-y-1 text-left text-sm">
-                {ranked.map((p, i) => (
-                  <li
-                    key={p.playerId}
-                    className="flex items-center justify-between rounded-md px-2 py-1"
-                    style={{
-                      background:
-                        i === 0 ? "color-mix(in srgb, var(--color-superposition) 16%, transparent)" : undefined,
-                    }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="w-5 text-center font-bold text-[var(--color-quantum-muted)]">
-                        {i + 1}º
-                      </span>
-                      {nameFor(p.slot)}
-                    </span>
-                    <span className="tabular-nums">
-                      {p.score.toLocaleString("es")} pts · {t("collapses")}: {p.metrics.collapses ?? 0}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <h2 className="mb-6 text-2xl font-bold text-[var(--color-quantum-text)]">Juego en pausa</h2>
+              <Button className="mb-3 w-full" onClick={() => setPaused(false)}>
+                Reanudar
+              </Button>
               <a href="/board">
-                <Button className="w-full">{t("backToBoard")}</Button>
+                <Button variant="outline" className="w-full">
+                  Salir al tablero
+                </Button>
               </a>
+              <p className="mt-4 text-xs text-[var(--color-quantum-muted)]">
+                Atajo: <b>Esc</b> o <b>P</b> para pausar / reanudar.
+              </p>
             </Panel>
+          </div>
+        )}
+
+        {result && (
+          <div className="pointer-events-auto absolute inset-0 overflow-hidden bg-black/70 backdrop-blur-sm">
+            <WinnerCelebration />
+
+            {/* Personaje ganador: GRANDE, centrado y un poco hacia la izquierda. */}
+            {winner && (
+              <div className="trophy-pop pointer-events-none absolute left-[44%] top-1/2 z-10 h-[82vh] w-[62vw] max-w-[44rem] -translate-x-1/2 -translate-y-1/2">
+                <WinnerShowcase slot={winner.slot} color={colorFor(winner.slot)} />
+                <div className="win-title absolute inset-x-0 bottom-4 text-center">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-superposition)]">
+                    {t("winner")}
+                  </div>
+                  <h2 className="text-4xl font-extrabold text-[var(--color-quantum-text)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                    {nameFor(winner.slot)}
+                  </h2>
+                </div>
+              </div>
+            )}
+
+            {/* Tabla de resultados: a la derecha, para no tapar al ganador. */}
+            <div className="absolute inset-y-0 right-0 z-20 grid place-items-center p-6">
+              <Panel className="w-[min(90vw,24rem)] text-center">
+                <div className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-quantum-muted)]">
+                  {t("title")}
+                </div>
+                <ul className="mb-5 space-y-1 text-left text-sm">
+                  {ranked.map((p, i) => (
+                    <li
+                      key={p.playerId}
+                      className="flex items-center justify-between rounded-md px-2 py-1"
+                      style={{
+                        background:
+                          i === 0 ? "color-mix(in srgb, var(--color-superposition) 16%, transparent)" : undefined,
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="w-5 text-center font-bold text-[var(--color-quantum-muted)]">
+                          {i + 1}º
+                        </span>
+                        {nameFor(p.slot)}
+                      </span>
+                      <span className="tabular-nums">
+                        {p.score.toLocaleString("es")} pts · {t("collapses")}: {p.metrics.collapses ?? 0}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <a href="/board">
+                  <Button className="w-full">{t("backToBoard")}</Button>
+                </a>
+              </Panel>
+            </div>
           </div>
         )}
       </div>
@@ -180,8 +244,8 @@ function WinnerCelebration() {
           }}
         />
       ))}
-      {/* Centro de destellos alineado con el trofeo */}
-      <div className="absolute left-1/2 top-[42%]">
+      {/* Centro de destellos alineado con el ganador (centro, un poco a la izquierda) */}
+      <div className="absolute left-[44%] top-1/2">
         {sparkles.map((s, i) => (
           <span
             key={`s-${i}`}

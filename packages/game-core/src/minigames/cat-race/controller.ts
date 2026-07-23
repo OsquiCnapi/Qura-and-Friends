@@ -19,12 +19,20 @@ export const SHIELD_COOLDOWN = 6;
 const EXHAUST_RECOVER = 0.6;
 /** Tiempo del duelo de preguntas (s), igual para ambos jugadores. */
 const QUIZ_TIME = 7;
+/** Tiempo de la fase de revelación (s): se muestra la respuesta correcta y el porqué explicativo. */
+const REVEAL_TIME = 7;
 
 interface ActiveQuiz {
   question: QuizQuestion;
   timeLeft: number;
   participants: number[]; // slots
   selection: Map<number, 0 | 1 | null>; // slot → 0 Falso / 1 Verdadero / null
+  /** Fase de revelación (educativa): ya se acabó el tiempo, se muestra respuesta + explicación. */
+  revealing: boolean;
+  /** Segundos restantes de la fase de revelación. */
+  revealLeft: number;
+  /** Aciertos por jugador, fijados al entrar en revelación. */
+  correct: Map<number, boolean>;
 }
 
 export class CatRaceController implements MinigameController<CatRaceRenderState> {
@@ -203,7 +211,15 @@ export class CatRaceController implements MinigameController<CatRaceRenderState>
       const rr = this.runners.find((r) => r.slot === s);
       if (rr) rr.quizzedThisStun = true;
     });
-    this.quiz = { question, timeLeft: QUIZ_TIME, participants, selection };
+    this.quiz = {
+      question,
+      timeLeft: QUIZ_TIME,
+      participants,
+      selection,
+      revealing: false,
+      revealLeft: REVEAL_TIME,
+      correct: new Map<number, boolean>(),
+    };
   }
 
   private updateQuiz(dtFixed: number, input: InputSnapshot): void {
@@ -212,6 +228,14 @@ export class CatRaceController implements MinigameController<CatRaceRenderState>
       this.mode = "race";
       return;
     }
+
+    // Fase de revelación: la carrera sigue congelada mientras se muestra el porqué; nada que elegir.
+    if (q.revealing) {
+      q.revealLeft -= dtFixed;
+      if (q.revealLeft <= 0) this.finishQuiz();
+      return;
+    }
+
     // Selección sin confirmar: la última dirección pulsada manda (izq = Falso, der = Verdadero).
     for (const slot of q.participants) {
       const player = this.ctx.players.find((p) => p.slot === slot);
@@ -221,18 +245,23 @@ export class CatRaceController implements MinigameController<CatRaceRenderState>
     }
 
     q.timeLeft -= dtFixed;
-    if (q.timeLeft <= 0) this.resolveQuiz();
+    if (q.timeLeft <= 0) this.enterReveal();
   }
 
-  private resolveQuiz(): void {
+  /**
+   * Se acabó el tiempo: aplica las consecuencias (acierto = sigue; fallo = decoherencia) y pasa a la
+   * fase de revelación, donde se muestra la respuesta correcta y el porqué. La carrera sigue congelada.
+   */
+  private enterReveal(): void {
     const q = this.quiz;
     if (!q) return;
     const correct: 0 | 1 = q.question.answer ? 1 : 0;
     for (const slot of q.participants) {
       const r = this.runners.find((rr) => rr.slot === slot);
       if (!r) continue;
-      const choice = q.selection.get(slot);
-      if (choice === correct) {
+      const ok = q.selection.get(slot) === correct;
+      q.correct.set(slot, ok);
+      if (ok) {
         // Acierta → sale del aturdimiento y sigue corriendo.
         r.stunnedFor = 0;
       } else {
@@ -241,6 +270,12 @@ export class CatRaceController implements MinigameController<CatRaceRenderState>
         r.collapses++;
       }
     }
+    q.revealing = true;
+    q.revealLeft = REVEAL_TIME;
+  }
+
+  /** Cierra el duelo tras la revelación y reanuda la carrera. */
+  private finishQuiz(): void {
     this.quiz = null;
     this.mode = "race";
   }
@@ -272,9 +307,15 @@ export class CatRaceController implements MinigameController<CatRaceRenderState>
     return {
       statement: q.question.statement,
       answer: q.question.answer,
-      timeLeft: Math.max(0, q.timeLeft),
-      timeTotal: QUIZ_TIME,
-      selections: q.participants.map((slot) => ({ slot, choice: q.selection.get(slot) ?? null })),
+      explanation: q.question.explanation,
+      revealing: q.revealing,
+      timeLeft: Math.max(0, q.revealing ? q.revealLeft : q.timeLeft),
+      timeTotal: q.revealing ? REVEAL_TIME : QUIZ_TIME,
+      selections: q.participants.map((slot) => ({
+        slot,
+        choice: q.selection.get(slot) ?? null,
+        correct: q.revealing ? (q.correct.get(slot) ?? false) : null,
+      })),
     };
   }
 
@@ -298,10 +339,14 @@ export class CatRaceController implements MinigameController<CatRaceRenderState>
             statement: quiz.statement,
             timeLeftMs: Math.round(quiz.timeLeft * 1000),
             timeTotalMs: quiz.timeTotal * 1000,
+            revealing: quiz.revealing,
+            answer: quiz.answer ? 1 : 0,
+            explanation: quiz.explanation,
             selections: quiz.selections.map((s) => ({
               slot: s.slot,
               name: this.ctx.players.find((p) => p.slot === s.slot)?.name ?? `P${s.slot + 1}`,
               choice: s.choice,
+              correct: s.correct,
             })),
           }
         : null,

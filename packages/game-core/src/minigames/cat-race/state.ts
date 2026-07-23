@@ -39,12 +39,23 @@ export interface QuizState {
   readonly statement: string;
   /** Respuesta correcta: `true` = Verdadero. */
   readonly answer: boolean;
-  /** Segundos restantes. */
+  /** Explicación del porqué (se muestra al costado en la fase de revelación). */
+  readonly explanation: string;
+  /** Fase de revelación: ya se acabó el tiempo y se muestra la respuesta + explicación. */
+  readonly revealing: boolean;
+  /** Segundos restantes (de la fase actual: responder o revelar). */
   readonly timeLeft: number;
-  /** Segundos totales concedidos (para pintar la barra). */
+  /** Segundos totales de la fase actual (para pintar la barra). */
   readonly timeTotal: number;
-  /** Selección actual por jugador: 0 = Falso, 1 = Verdadero, null = sin elegir. */
-  readonly selections: ReadonlyArray<{ readonly slot: number; readonly choice: 0 | 1 | null }>;
+  /**
+   * Selección por jugador: 0 = Falso, 1 = Verdadero, null = sin elegir.
+   * `correct` solo tiene sentido en la fase de revelación (null mientras se responde).
+   */
+  readonly selections: ReadonlyArray<{
+    readonly slot: number;
+    readonly choice: 0 | 1 | null;
+    readonly correct: boolean | null;
+  }>;
 }
 
 export interface CatRaceRenderState {

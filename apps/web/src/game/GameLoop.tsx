@@ -8,6 +8,7 @@ import {
   type MinigameResult,
 } from "@quantum-party/game-core";
 import { useHudStore } from "@/state/hudStore.js";
+import { useGameControlStore } from "@/state/gameControlStore.js";
 import { buildSnapshot } from "@/input/inputManager.js";
 
 /**
@@ -31,6 +32,10 @@ export function GameLoop({
   useFrame((_, dt) => {
     const controller = controllerRef.current;
     if (!controller || finished.current) return;
+
+    // En pausa se congela la simulación: no se avanza el paso fijo ni se acumula tiempo (el próximo
+    // dt al reanudar es solo el del frame, sin saltos). El HUD conserva su último snapshot.
+    if (useGameControlStore.getState().paused) return;
 
     loop.current.advance(dt, (fixedDt) => {
       simTime.current += fixedDt;

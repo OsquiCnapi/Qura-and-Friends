@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { createRng } from "@quantum-party/quantum-engine";
 import {
   createBoardState,
-  currentTile,
   generateBoard,
   rollAndMove,
   type BoardState,
@@ -33,7 +32,6 @@ export function BoardView() {
     createBoardState(generateBoard(6), players.length),
   );
 
-  const tile = currentTile(state);
   const pawn = state.pawns[state.turn];
 
   return (
@@ -77,11 +75,11 @@ export function BoardView() {
         <div className="flex flex-wrap gap-3">
           <Button onClick={() => setState((s) => rollAndMove(s, rng))}>Tirar dado</Button>
 
-          {(tile.kind === "minigame" || tile.kind === "start") && (
-            <a href="/play/cat-race">
-              <Button variant="primary">Jugar: {t("minigames.catRace.title")}</Button>
-            </a>
-          )}
+          {/* En este entregable "La Carrera del Gato" es el único minijuego jugable, así que se ofrece
+              SIEMPRE (no solo al caer en casilla de minijuego): tras cada tirada puedes jugarla. */}
+          <a href="/play/cat-race">
+            <Button variant="primary">Jugar: {t("minigames.catRace.title")}</Button>
+          </a>
         </div>
 
         <p className="text-sm text-[var(--color-quantum-muted)]">

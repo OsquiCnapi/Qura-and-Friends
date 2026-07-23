@@ -90,7 +90,15 @@ export interface QuizHud {
     readonly name: string;
     /** 0 = Falso, 1 = Verdadero, null = sin elegir. */
     readonly choice: 0 | 1 | null;
+    /** En la revelación: si el jugador acertó (null mientras se responde). */
+    readonly correct?: boolean | null;
   }>;
+  /** Fase de revelación: se acabó el tiempo y se muestra la respuesta correcta + el porqué. */
+  readonly revealing: boolean;
+  /** Respuesta correcta (0 = Falso, 1 = Verdadero) para resaltar la opción en la revelación. */
+  readonly answer: 0 | 1;
+  /** Explicación del porqué, mostrada al costado durante la revelación. */
+  readonly explanation: string;
 }
 
 /** Modelo serializable que el overlay HTML dibuja. Se publica throttled (~10–15 Hz), no a 60 fps. */

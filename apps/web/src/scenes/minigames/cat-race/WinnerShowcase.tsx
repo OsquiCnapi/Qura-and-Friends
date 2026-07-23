@@ -17,8 +17,9 @@ function Celebrating({ slot }: { slot: number }) {
     g.rotation.z = Math.sin(t * 6) * 0.05; // leve contoneo
   });
   // yaw=0 → mira HACIA la cámara (en la carrera usa Math.PI y corre de espaldas).
+  // scale=1.25 → protagonista más grande en el overlay de victoria.
   return (
-    <group ref={ref} position={[0, -0.95, 0]}>
+    <group ref={ref} position={[0, -0.95, 0]} scale={1.25}>
       <RunnerModel slot={slot} yaw={0} />
     </group>
   );
@@ -27,7 +28,7 @@ function Celebrating({ slot }: { slot: number }) {
 /** Mini-escena 3D del ganador para el overlay de resultados (Canvas propio, fondo transparente). */
 export function WinnerShowcase({ slot, color }: { slot: number; color: string }) {
   return (
-    <Canvas camera={{ position: [0, 0.25, 3.7], fov: 36 }} dpr={[1, 2]} gl={{ alpha: true }}>
+    <Canvas camera={{ position: [0, 0.3, 3.4], fov: 36 }} dpr={[1, 2]} gl={{ alpha: true }}>
       <ambientLight intensity={0.9} />
       <directionalLight position={[3, 5, 2]} intensity={1.4} castShadow />
       <pointLight position={[-2.2, 1.2, 2]} intensity={12} distance={9} color={color} />
