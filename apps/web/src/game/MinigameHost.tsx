@@ -159,9 +159,9 @@ export function MinigameHost({ minigameId }: { minigameId: string }) {
           <div className="pointer-events-auto absolute inset-0 overflow-hidden bg-black/70 backdrop-blur-sm">
             <WinnerCelebration />
 
-            {/* Personaje ganador: GRANDE, centrado y un poco hacia la izquierda. */}
+            {/* Personaje ganador: GRANDE y centrado en pantalla. */}
             {winner && (
-              <div className="trophy-pop pointer-events-none absolute left-[44%] top-1/2 z-10 h-[82vh] w-[62vw] max-w-[44rem] -translate-x-1/2 -translate-y-1/2">
+              <div className="trophy-pop pointer-events-none absolute left-1/2 top-1/2 z-10 h-[82vh] w-[62vw] max-w-[44rem] -translate-x-1/2 -translate-y-1/2">
                 <WinnerShowcase slot={winner.slot} color={colorFor(winner.slot)} />
                 <div className="win-title absolute inset-x-0 bottom-4 text-center">
                   <div className="mb-1 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-superposition)]">
@@ -174,9 +174,9 @@ export function MinigameHost({ minigameId }: { minigameId: string }) {
               </div>
             )}
 
-            {/* Tabla de resultados: a la derecha, para no tapar al ganador. */}
-            <div className="absolute inset-y-0 right-0 z-20 grid place-items-center p-6">
-              <Panel className="w-[min(90vw,24rem)] text-center">
+            {/* Tabla de resultados: esquina inferior-derecha, compacta, para no tapar al ganador. */}
+            <div className="absolute bottom-6 right-6 z-20">
+              <Panel className="w-[min(90vw,22rem)] text-center">
                 <div className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-quantum-muted)]">
                   {t("title")}
                 </div>
@@ -244,8 +244,8 @@ function WinnerCelebration() {
           }}
         />
       ))}
-      {/* Centro de destellos alineado con el ganador (centro, un poco a la izquierda) */}
-      <div className="absolute left-[44%] top-1/2">
+      {/* Centro de destellos alineado con el ganador (centrado en pantalla) */}
+      <div className="absolute left-1/2 top-1/2">
         {sparkles.map((s, i) => (
           <span
             key={`s-${i}`}

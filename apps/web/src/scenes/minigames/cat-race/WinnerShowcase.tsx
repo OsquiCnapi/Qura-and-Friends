@@ -5,6 +5,12 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { RunnerModel } from "./RunnerModel.js";
 
+// El RunnerModel se normaliza a 1.7 u de alto con los pies en y=0. Para que quede
+// CENTRADO verticalmente en el encuadre, bajamos el grupo media altura (el centro
+// del personaje cae en y≈0, justo donde mira la cámara).
+const MODEL_HEIGHT = 1.7;
+const BASE_Y = -MODEL_HEIGHT / 2; // -0.85 → centro del cuerpo en el origen
+
 /** El personaje ganador gira y da brincos de celebración (animación procedural). */
 function Celebrating({ slot }: { slot: number }) {
   const ref = useRef<THREE.Group>(null);
@@ -13,13 +19,12 @@ function Celebrating({ slot }: { slot: number }) {
     if (!g) return;
     const t = s.clock.elapsedTime;
     g.rotation.y = Math.sin(t * 0.9) * 0.5; // vaivén suave (se mantiene de frente y centrado)
-    g.position.y = -0.95 + Math.abs(Math.sin(t * 3)) * 0.15; // saltitos de victoria
+    g.position.y = BASE_Y + Math.abs(Math.sin(t * 3)) * 0.12; // saltitos de victoria
     g.rotation.z = Math.sin(t * 6) * 0.05; // leve contoneo
   });
   // yaw=0 → mira HACIA la cámara (en la carrera usa Math.PI y corre de espaldas).
-  // scale=1.25 → protagonista más grande en el overlay de victoria.
   return (
-    <group ref={ref} position={[0, -0.95, 0]} scale={1.25}>
+    <group ref={ref} position={[0, BASE_Y, 0]}>
       <RunnerModel slot={slot} yaw={0} />
     </group>
   );
@@ -28,7 +33,10 @@ function Celebrating({ slot }: { slot: number }) {
 /** Mini-escena 3D del ganador para el overlay de resultados (Canvas propio, fondo transparente). */
 export function WinnerShowcase({ slot, color }: { slot: number; color: string }) {
   return (
-    <Canvas camera={{ position: [0, 0.3, 3.4], fov: 36 }} dpr={[1, 2]} gl={{ alpha: true }}>
+    // fov es VERTICAL en three.js → el encuadre alto es estable con cualquier aspecto.
+    // Cámara retirada (z=4.4) y mirando al origen para que el personaje entero (con sus
+    // saltitos) quepa centrado y sin recortar la cabeza.
+    <Canvas camera={{ position: [0, 0.1, 4.4], fov: 30 }} dpr={[1, 2]} gl={{ alpha: true }}>
       <ambientLight intensity={0.9} />
       <directionalLight position={[3, 5, 2]} intensity={1.4} castShadow />
       <pointLight position={[-2.2, 1.2, 2]} intensity={12} distance={9} color={color} />

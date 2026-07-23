@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { createRng } from "@quantum-party/quantum-engine";
 import {
@@ -11,6 +11,9 @@ import {
 } from "@quantum-party/game-core";
 import { Button, Panel } from "@quantum-party/ui";
 import { useSessionStore } from "@/state/sessionStore.js";
+import { useSettingsStore } from "@/state/settingsStore.js";
+
+const COMMENTATOR_SFX_URL = "/audio/comentarista.mpeg";
 
 const zoneColor: Record<string, string> = {
   superposition: "var(--color-superposition)",
@@ -33,6 +36,31 @@ export function BoardView() {
   );
 
   const pawn = state.pawns[state.turn];
+
+  // Locución del comentarista al entrar al tablero. Si el navegador bloquea el
+  // autoplay (sin interacción previa), se reintenta al primer clic/tecla. Respeta el mute.
+  useEffect(() => {
+    if (useSettingsStore.getState().muted) return;
+    const audio = new Audio(COMMENTATOR_SFX_URL);
+    audio.volume = 0.8;
+    const tryPlay = () => {
+      void audio.play().catch(() => {});
+    };
+    tryPlay();
+    const onInteract = () => {
+      tryPlay();
+      window.removeEventListener("pointerdown", onInteract);
+      window.removeEventListener("keydown", onInteract);
+    };
+    window.addEventListener("pointerdown", onInteract);
+    window.addEventListener("keydown", onInteract);
+    return () => {
+      window.removeEventListener("pointerdown", onInteract);
+      window.removeEventListener("keydown", onInteract);
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, []);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-6 py-10">

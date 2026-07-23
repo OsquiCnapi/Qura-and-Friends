@@ -20,9 +20,18 @@ export function catRaceConfig(difficulty: number, rngIntStream: () => number): C
   const trackLength = 3200;
   // Menos obstáculos → mucha más distancia entre puertas (más aire para reaccionar).
   const obstacleCount = 34 + difficulty * 8;
+  const start = 16;
+  const end = trackLength - 28;
+  // Dificultad creciente: el arranque va despejado y las puertas rojas se van
+  // agolpando hacia el medio y, sobre todo, el final. Se logra sesgando la
+  // posición normalizada con una potencia < 1 (u^BIAS reparte disperso al inicio
+  // y denso al final). BIAS más bajo = curva más agresiva.
+  const BIAS = 0.68;
   const obstacles: Array<{ distance: number; lane: number }> = [];
   for (let i = 0; i < obstacleCount; i++) {
-    const distance = 16 + (trackLength - 28) * ((i + 1) / (obstacleCount + 1));
+    const u = (i + 1) / (obstacleCount + 1); // (0,1)
+    const biased = Math.pow(u, BIAS);
+    const distance = start + (end - start) * biased;
     const lane = rngIntStream() % lanes;
     obstacles.push({ distance, lane });
   }
