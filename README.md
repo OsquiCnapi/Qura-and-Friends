@@ -22,6 +22,7 @@ Dos jugadores locales (_hotseat_) recorren un tablero por turnos; cada casilla l
 - [Organización del código](#organización-del-código)
 - [Cómo funciona](#cómo-funciona)
 - [Puesta en marcha](#puesta-en-marcha)
+- [Despliegue en Vercel](#despliegue-en-vercel)
 - [Scripts](#scripts)
 - [Buenas prácticas y convenciones](#buenas-prácticas-y-convenciones)
 - [Estabilidad y calidad](#estabilidad-y-calidad)
@@ -198,6 +199,56 @@ cd services/annealing && uvicorn app:app --reload   # ver services/annealing/REA
 ```
 
 > **Variables** (`.env.example`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (cliente); `SUPABASE_SERVICE_ROLE_KEY` (solo servidor, **nunca** al cliente); `ANNEAL_SERVICE_URL`, `ANNEAL_SERVICE_TOKEN` (Edge → Python).
+
+---
+
+## Despliegue en Vercel
+
+Solo se despliega la app web (`apps/web`). El proyecto ya trae la configuración lista (`apps/web/vercel.json`, `engines.node = 22.x`).
+
+### 1. Importar el repo
+
+En [vercel.com/new](https://vercel.com/new) importa `DanielUsuario001/Qura-and-Friends` y configura:
+
+| Ajuste | Valor |
+|--------|-------|
+| **Root Directory** | `apps/web` ⟵ **imprescindible** (monorepo) |
+| Framework Preset | Next.js _(autodetectado)_ |
+| Build Command | `next build` _(desde `vercel.json`)_ |
+| Install Command | `pnpm install --frozen-lockfile` _(desde `vercel.json`)_ |
+| Node.js Version | 22.x _(desde `engines`)_ |
+
+> Vercel detecta el workspace pnpm por el `pnpm-lock.yaml` del repo y enlaza los `packages/*` automáticamente (deja activado _"Include files outside the Root Directory"_).
+
+### 2. Variables de entorno
+
+En **Settings → Environment Variables** añade (Production + Preview):
+
+```
+NEXT_PUBLIC_SUPABASE_URL        = https://<tu-proyecto>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY   = <anon key del panel de Supabase>
+SUPABASE_SERVICE_ROLE_KEY       = <service role key>   # solo servidor
+ANNEAL_SERVICE_URL              = https://<tu-servicio-annealing>
+ANNEAL_SERVICE_TOKEN            = <token interno Edge→Python>
+```
+
+> El build **no** requiere estas variables (la landing y las rutas estáticas compilan sin ellas), pero sí hacen falta en runtime para las funciones de Supabase. Recuerda que `NEXT_PUBLIC_*` se **inyectan en build**: si las cambias, hay que **redeploy**.
+
+### 3. Deploy
+
+`git push` a `main` dispara el deploy automáticamente. Alternativa por CLI:
+
+```bash
+npm i -g vercel
+cd apps/web && vercel --prod
+```
+
+### Qué NO va en Vercel
+
+- **`services/annealing`** (Python/OpenJij) → despliégalo aparte (Railway, Fly.io, Render, Cloud Run) y apunta `ANNEAL_SERVICE_URL` a su URL.
+- **`supabase/`** (migraciones + Edge Functions Deno) → se gestiona con la CLI de Supabase (`supabase db push`, `supabase functions deploy`), no con Vercel.
+
+> ⚠️ **Assets pesados:** `apps/web/public/` incluye modelos `.glb` de ~63 MB (191 MB en total). Se sirven vía la CDN de Vercel sin problema, pero para acelerar builds y evitar límites conviene moverlos a almacenamiento de objetos (Supabase Storage / Cloudflare R2) y/o **Git LFS**.
 
 ---
 
