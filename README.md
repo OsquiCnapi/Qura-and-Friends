@@ -2,326 +2,508 @@
 
 # Qura and Friends 🐇🎩⚛️
 
-**Juego web educativo semi-3D tipo _Mario Party_ para enseñar computación cuántica a jóvenes**, con temática de _Alicia en el País de las Maravillas_.
+**Juego educativo 3D tipo Mario Party para enseñar computación cuántica.** Dos jugadores locales (hotseat) recorren un tablero por turnos; cada casilla lanza un minijuego que enseña un concepto cuántico *real* con un motor cuántico de verdad.
 
-Dos jugadores locales (_hotseat_) recorren un tablero por turnos; cada casilla lanza un minijuego que enseña un concepto cuántico **real**, no una animación decorativa.
+Temática: *Alicia en el País de las Maravillas*. Determinístico, reproducible, anti-trampa.
 
 <br>
 
-![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![R3F](https://img.shields.io/badge/React_Three_Fiber-9-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript) ![pnpm](https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm) ![Turborepo](https://img.shields.io/badge/Turborepo-2-EF4444?logo=turborepo) ![Supabase](https://img.shields.io/badge/Supabase-Realtime-3FCF8E?logo=supabase)
+![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs) ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![R3F](https://img.shields.io/badge/React_Three_Fiber-9-black) ![TypeScript 5.7](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript) ![pnpm 10](https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm) ![Turborepo](https://img.shields.io/badge/Turborepo-2-EF4444?logo=turborepo) ![Supabase](https://img.shields.io/badge/Supabase-Realtime-3FCF8E?logo=supabase)
+
+**[📖 Documentación Completa](./ARCHITECTURE.md)** • **[🤝 Contribuir](./CONTRIBUTING.md)** • **[🛠️ Setup Dev](./DEVELOPMENT.md)**
 
 </div>
 
 ---
 
-## Tabla de contenidos
-
-- [¿Qué es?](#qué-es)
-- [Conceptos que enseña](#conceptos-que-enseña-fácil--difícil)
-- [Arquitectura](#arquitectura)
-- [Organización del código](#organización-del-código)
-- [Cómo funciona](#cómo-funciona)
-- [Puesta en marcha](#puesta-en-marcha)
-- [Despliegue en Vercel](#despliegue-en-vercel)
-- [Scripts](#scripts)
-- [Buenas prácticas y convenciones](#buenas-prácticas-y-convenciones)
-- [Estabilidad y calidad](#estabilidad-y-calidad)
-- [Rutas de la app](#rutas-de-la-app)
-- [Roadmap](#roadmap)
-
----
-
-## ¿Qué es?
-
-**Qura and Friends** convierte los fundamentos de la computación cuántica en un _party game_ por turnos. En vez de explicar la teoría con diapositivas, la **simula de verdad**: cada minijuego corre sobre un motor de estados cuánticos escrito desde cero (vectores de estado, compuertas, medición probabilística), de modo que lo que el jugador ve en pantalla es el resultado auténtico de la física.
-
-- 🎲 **Tablero por turnos** — dados + casillas, estilo Mario Party.
-- 👥 **Multijugador local _hotseat_** — P1 con `WASD`, P2 con las flechas. Sin red en tiempo real.
-- 🧪 **Laboratorio interactivo** — la esfera de Bloch y las compuertas como rotaciones.
-- 📊 **Plataforma en vivo** — marcadores, progreso y sesiones sincronizados con Supabase Realtime.
-- 🎓 **Contenido trazable** — el material pedagógico se destila de `../qbronze_docs` (básico) y `../qsilver_docs` (intermedio/avanzado).
-
----
-
-## Conceptos que enseña (fácil → difícil)
-
-| # | Categoría | Qué se aprende | Motor |
-|---|-----------|----------------|-------|
-| 1 | **Superposición** | Medición/colapso, `prob = \|amplitud\|²`, búsqueda de Grover | `superposition.ts` |
-| 2 | **Entrelazamiento** | Pares de Bell, correlación/anticorrelación, teleportación | `entanglement.ts` |
-| 3 | **Interferencia** | Fase, interferencia constructiva/destructiva | `interference.ts` |
-| 4 | **Optimización / _Quantum Annealing_** | Ising → QUBO, recocido | `annealing/` + OpenJij |
-
-**Transversal:** las **compuertas como rotaciones** y la **esfera de Bloch** (laboratorio interactivo). El minijuego plantilla funcional es **_La Carrera del Gato_** (superposición y colapso por medición).
-
----
-
-## Arquitectura
-
-Monorepo **pnpm + Turborepo**. El navegador ejecuta todo el juego (motor cuántico incluido) en el cliente; el backend solo persiste y sincroniza estado en vivo. El recocido cuántico (Categoría 4) se delega a un microservicio Python.
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                          Navegador (cliente)                       │
-│                                                                    │
-│   apps/web  ── Next.js 15 · React 19 · React Three Fiber v9        │
-│   ┌────────────┐   ┌────────────┐   ┌──────────────────────────┐  │
-│   │  HUD (DOM) │◄──│  Zustand   │◄──│  <Canvas> R3F (60 Hz)     │  │
-│   │  React     │   │  (stores)  │   │  MinigameController + sim │  │
-│   └────────────┘   └────────────┘   └──────────────────────────┘  │
-│         ▲                                     │                    │
-│         │   input singleton (WASD / flechas)  │ usa               │
-│         └───────────────┬─────────────────────┘                   │
-│                         ▼                                          │
-│        packages/quantum-engine · game-core · quantum-viz          │
-└───────────────────────────────┬───────────────────────────────────┘
-                                 │ HTTPS (fetch)
-                 ┌───────────────┴───────────────┐
-                 ▼                                ▼
-   ┌───────────────────────────┐   ┌──────────────────────────────┐
-   │  Supabase                 │   │  services/annealing (Python)  │
-   │  Postgres + RLS           │   │  FastAPI + OpenJij            │
-   │  Realtime (leaderboards)  │◄──│  resuelve QUBO/Ising          │
-   │  Edge Functions (Deno)    │   └──────────────────────────────┘
-   │   · submit-score (anti-   │        ▲
-   │     trampa, service_role) │        │ Edge Function `anneal`
-   │   · anneal (proxy + auth) │────────┘   (JWT + token interno)
-   └───────────────────────────┘
-```
-
-**Decisiones clave**
-
-- **Cliente-first:** el motor cuántico es TypeScript puro y corre en el navegador → cero latencia y funciona offline salvo persistencia.
-- **Backend delgado:** Supabase para datos en vivo (Realtime) y validación anti-trampa en Edge Functions; nunca lógica de juego.
-- **Annealing aislado:** OpenJij (Python) vive en su propio servicio; la Edge Function `anneal` actúa de proxy autenticado (JWT de usuario **+** token interno Edge→Python).
-- **"Todo en tiempo real con Supabase"** = plataforma en vivo (marcadores/progreso/sesiones), **no** multijugador en red.
-
----
-
-## Organización del código
-
-```
-proyecto/
-├── apps/
-│   └── web/                     Next.js 15 + React 19 + R3F — el juego
-│       └── src/
-│           ├── app/             App Router (rutas y layouts)
-│           │   ├── (game)/      board · play/[minigameId] · results
-│           │   ├── (learn)/     lab/[conceptId] · aula (stub docente)
-│           │   ├── api/         anneal · score (route handlers)
-│           │   ├── page.tsx     landing (Qura and Friends)
-│           │   └── layout.tsx   root + NextIntlClientProvider
-│           ├── components/      landing marketing (navbar, hero, features)
-│           ├── three/           GameCanvas (raíz R3F)
-│           ├── scenes/          escenas 3D por minijuego
-│           ├── game/            GameLoop · MinigameHost
-│           ├── hud/             HUD en DOM superpuesto al canvas
-│           ├── input/           inputManager (singleton) + keyboardMap
-│           ├── state/           stores Zustand (hud, session, settings)
-│           ├── machines/        XState (appMachine)
-│           ├── learn/           laboratorio (Bloch, LabView)
-│           ├── lib/             supabase clients, motion utils
-│           └── i18n/            next-intl (monolingüe: es)
-├── packages/
-│   ├── quantum-engine/          Motor de estados cuánticos — TS puro, testeado, sin framework
-│   │   └── src/  statevector · gates · superposition · entanglement ·
-│   │             interference · math/{complex,rng} · annealing/{ising,qubo,sa}
-│   ├── game-core/               Contrato Minigame, registry, game loop, tablero
-│   │   └── src/  board/{board,dice,tiles} · loop/fixedStep ·
-│   │             minigame/{contract,registry,types} · minigames/cat-race ·
-│   │             scoring/{score,validators}
-│   ├── quantum-viz/             Visualizaciones R3F (esfera de Bloch, compuertas, energía)
-│   ├── curriculum/              Contenido educativo (TS/MDX) trazable a los docs
-│   ├── schemas/                 Schemas Zod compartidos (cliente ↔ Edge Functions)
-│   └── ui/                      Design system (Tailwind v4, tokens CSS-first)
-├── services/
-│   └── annealing/               Microservicio Python (FastAPI + OpenJij) — Categoría 4
-├── supabase/
-│   ├── migrations/              0001_init · 0002_rls · 0003_realtime_leaderboard
-│   ├── functions/               Edge Functions Deno: submit-score · anneal · _shared
-│   └── config.toml
-├── docs/                        Notas de diseño
-├── turbo.json                   Pipeline Turborepo
-├── pnpm-workspace.yaml          apps/* · packages/* · services/*
-└── tsconfig.base.json           Config TS compartida
-```
-
-**Frontera de responsabilidades**
-
-| Capa | Hace | No hace |
-|------|------|---------|
-| `quantum-engine` | Álgebra cuántica pura y determinista | Nada de React, DOM ni I/O |
-| `game-core` | Reglas de juego, contrato de minijuegos, scoring | Renderizado, red |
-| `quantum-viz` / `scenes` | Presentación 3D (R3F) | Reglas de juego |
-| `hud` + `state` | UI en DOM y estado de presentación | Simulación a 60 Hz |
-| `apps/web/app` | Rutas, layout, data-fetching | Lógica cuántica |
-| Supabase / Edge | Persistencia, Realtime, anti-trampa | Lógica de juego |
-
----
-
-## Cómo funciona
-
-**Bucle de juego (60 Hz).** El `MinigameController` corre una **simulación a paso fijo de 60 Hz** dentro de `useFrame` (mutable, sin re-render). El HUD se publica _throttled_ (~12 Hz) al `hudStore` de Zustand — **nunca a 60 fps** — para no saturar React.
-
-**Input.** React Three Fiber usa su **propio reconciler**: el _contexto_ de React **no cruza** al `<Canvas>`. Por eso el input es un **singleton de módulo** (`src/input/inputManager.ts`) en vez de contexto. El HUD, en cambio, usa Zustand (también singleton), que sí funciona a través de la frontera del canvas.
-
-**Turno típico.**
-1. El jugador tira el dado (`game-core/board/dice`) y avanza por el tablero.
-2. La casilla resuelve a un minijuego vía el **registry** (`minigame/registry`).
-3. `MinigameHost` monta la escena 3D (`scenes/`) + el HUD (`hud/`) y arranca el controller.
-4. El controller pide física cuántica real al `quantum-engine` (superposición, colapso…).
-5. Al terminar, el score se valida y se envía a la Edge Function `submit-score`.
-6. La Categoría 4 (annealing) envía el QUBO a la API `anneal` → Edge Function → servicio Python OpenJij.
-
-**Backend.** Supabase Postgres con **RLS** (`0002_rls.sql`) guarda perfiles/sesiones/scores; Realtime (`0003`) alimenta los marcadores en vivo. Las inserciones de score pasan **siempre** por la Edge Function con `service_role` para aplicar validación anti-trampa.
-
----
-
-## Puesta en marcha
-
-**Requisitos:** Node ≥ 20.11, pnpm 10, (opcional) Deno + CLI de Supabase, Python 3.11+ para el servicio de annealing.
+## 📌 Inicio Rápido
 
 ```bash
-# 1. Instalar todo el workspace
+# Clonar y configurar
+git clone https://github.com/[org]/qura-and-friends.git
+cd qura-and-friends
 pnpm install
 
-# 2. Variables de entorno del cliente
-cp .env.example apps/web/.env.local     # rellenar con `supabase start` o el panel
+# Levantar servidor de desarrollo
+pnpm dev
 
-# 3. Arrancar el juego → http://localhost:3000
-pnpm --filter web dev
-
-# 4. (opcional) Backend local: Postgres + Realtime + Edge Functions
-pnpm dlx supabase start
-
-# 5. (opcional) Servicio de annealing (Categoría 4)
-cd services/annealing && uvicorn app:app --reload   # ver services/annealing/README.md
+# Abrir en navegador
+# http://localhost:3000
 ```
 
-> **Variables** (`.env.example`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (cliente); `SUPABASE_SERVICE_ROLE_KEY` (solo servidor, **nunca** al cliente); `ANNEAL_SERVICE_URL`, `ANNEAL_SERVICE_TOKEN` (Edge → Python).
+Para setup completo, ver [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ---
 
-## Despliegue en Vercel
+## 📚 Contenidos
 
-Solo se despliega la app web (`apps/web`). El proyecto ya trae la configuración lista (`apps/web/vercel.json`, `engines.node = 22.x`).
+1. [¿Qué es Qura?](#-qué-es-qura)
+2. [Conceptos Que Enseña](#-conceptos-que-enseña)
+3. [Arquitectura](#-arquitectura-cliente--servidor)
+4. [Estructura del Proyecto](#-estructura-del-proyecto)
+5. [Cómo Funciona](#-cómo-funciona)
+6. [Deploy](#-deploy)
+7. [Recursos y Documentación](#-recursos-y-documentación)
 
-### 1. Importar el repo
+---
 
-En [vercel.com/new](https://vercel.com/new) importa `DanielUsuario001/Qura-and-Friends` y configura:
+## 🎮 ¿Qué es Qura?
 
-| Ajuste | Valor |
-|--------|-------|
-| **Root Directory** | `apps/web` ⟵ **imprescindible** (monorepo) |
-| Framework Preset | Next.js _(autodetectado)_ |
-| Build Command | `next build` _(desde `vercel.json`)_ |
-| Install Command | `pnpm install --frozen-lockfile` _(desde `vercel.json`)_ |
-| Node.js Version | 22.x _(desde `engines`)_ |
+Un **juego educativo 3D** que convierte conceptos de computación cuántica en minijuegos interactivos. Cada minijuego ejecuta simulaciones cuánticas reales en el navegador:
 
-> Vercel detecta el workspace pnpm por el `pnpm-lock.yaml` del repo y enlaza los `packages/*` automáticamente (deja activado _"Include files outside the Root Directory"_).
+- **Superposición y colapso:** *La Carrera del Gato* — mantener superposición vs. riesgo de colapso
+- **Entrelazamiento:** Correlaciones cuánticas entre qubits
+- **Interferencia:** Fase y amplitudes complejas
+- **Quantum Annealing:** Optimización con recocido cuántico (delegado a Python/OpenJij)
 
-### 2. Variables de entorno
+**No es un simulador decorativo.** El motor cuántico es auténtico:
+- Vectores de estado (amplitudes complejas)
+- Compuertas unitarias (Hadamard, CNOT, Pauli, rotaciones)
+- Medición probabilística (con seed determinístico para reproducibilidad)
+- Esfera de Bloch en 3D (laboratorio interactivo)
 
-En **Settings → Environment Variables** añade (Production + Preview):
+---
+
+## 📊 Conceptos que Enseña
+
+| Dificultad | Categoría | Minijuego Plantilla | Motor |
+|---|---|---|---|
+| ⭐ | Superposición | *La Carrera del Gato* | `superposition.ts` |
+| ⭐⭐ | Entrelazamiento | (en desarrollo) | `entanglement.ts` |
+| ⭐⭐⭐ | Interferencia | (en desarrollo) | `interference.ts` |
+| ⭐⭐⭐⭐ | Quantum Annealing | (en desarrollo) | `annealing/` + OpenJij |
+
+Todos los minijuegos usan la **esfera de Bloch** como herramienta visual central.
+
+---
+
+## 🏗️ Arquitectura Cliente ↔ Servidor
+
+### Frontend (Todo en el navegador)
 
 ```
-NEXT_PUBLIC_SUPABASE_URL        = https://<tu-proyecto>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY   = <anon key del panel de Supabase>
-SUPABASE_SERVICE_ROLE_KEY       = <service role key>   # solo servidor
-ANNEAL_SERVICE_URL              = https://<tu-servicio-annealing>
-ANNEAL_SERVICE_TOKEN            = <token interno Edge→Python>
+Next.js 15 (SSR estático)
+  ├── React 19
+  │   ├── Zustand (state management)
+  │   ├── XState (orquestación de pantallas)
+  │   └── next-intl (i18n)
+  │
+  └── React Three Fiber v9
+      ├── Three.js (rendering 3D)
+      ├── Rapier (física)
+      └── Postprocessing (efectos)
+          ↓ usa
+      quantum-engine (TS puro)
+          ├── statevector (amplitudes complejas)
+          ├── gates (compuertas)
+          ├── measurement (colapso probabilístico)
+          └── annealing (Ising → QUBO)
 ```
 
-> El build **no** requiere estas variables (la landing y las rutas estáticas compilan sin ellas), pero sí hacen falta en runtime para las funciones de Supabase. Recuerda que `NEXT_PUBLIC_*` se **inyectan en build**: si las cambias, hay que **redeploy**.
+### Backend (Minimalista)
 
-### 3. Deploy
+```
+Supabase
+  ├── Postgres (sesiones, perfiles, scores)
+  ├── Realtime (leaderboards en vivo)
+  └── Edge Functions (Deno)
+      ├── submit-score (validación anti-trampa)
+      └── anneal (proxy a Python)
+         ↓
+Python Microservicio (FastAPI + OpenJij)
+  └── Resuelve problemas de annealing
+```
 
-`git push` a `main` dispara el deploy automáticamente. Alternativa por CLI:
+**Decisión arquitectónica:** El cliente ejecuta toda la lógica de juego. El servidor solo persiste y valida. Esto permite:
+- Gameplay offline
+- Cero latencia
+- Reproducibilidad (seed → validación)
+
+---
+
+## 📁 Estructura del Proyecto
+
+### Monorepo pnpm + Turborepo
+
+```
+qura-and-friends/
+│
+├── apps/web/                              Next.js + React + R3F
+│   └── src/
+│       ├── app/                           App Router (landing, game, learn)
+│       ├── components/                    Componentes React genéricos
+│       ├── game/                          GameLoop.tsx, MinigameHost.tsx
+│       ├── scenes/minigames/              Escenas 3D por minijuego
+│       ├── hud/                           HUD en DOM (throttled ~12 Hz)
+│       ├── input/                         Input manager (singleton)
+│       ├── state/                         Zustand stores (global)
+│       ├── machines/                      XState (orquestación)
+│       ├── lib/                           Helpers y clientes (Supabase)
+│       └── i18n/                          Traducciones (ES, EN)
+│
+├── packages/                              Código compartido TS puro
+│   ├── quantum-engine/                    Motor de estados cuánticos
+│   │   └── src/ statevector · gates · superposition ·
+│   │           entanglement · interference · annealing
+│   │
+│   ├── game-core/                         Contrato de minijuegos
+│   │   └── src/ minigame/contract · registry · minigames/cat-race ·
+│   │           loop/fixedStep · board/ · scoring/
+│   │
+│   ├── quantum-viz/                       Visualización (Bloch sphere)
+│   ├── curriculum/                        Contenido educativo
+│   ├── schemas/                           Tipos Zod compartidos + constantes
+│   └── ui/                                Design system (Button, Panel, etc)
+│
+├── services/                              Backend services
+│   └── annealing/                         Python FastAPI + OpenJij
+│
+├── supabase/                              Configuración BDD
+│   ├── migrations/                        Schema SQL
+│   └── functions/                         Edge Functions (Deno)
+│
+├── docs/                                  Game Design Document
+├── ARCHITECTURE.md                        ⭐ Arquitectura técnica detallada
+├── CONTRIBUTING.md                        ⭐ Guía de contribución
+├── DEVELOPMENT.md                         ⭐ Setup y desarrollo
+├── .editorconfig                          Estándares de código
+├── tsconfig.base.json                     TypeScript compartido
+├── turbo.json                             Configuración Turborepo
+└── pnpm-workspace.yaml                    Definición del monorepo
+```
+
+Para detalles profundos, ver [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+---
+
+## ⚙️ Cómo Funciona
+
+### Flujo de Minijuego (60 Hz Determinístico)
+
+```typescript
+MinigameHost
+  ├── Inicializa contexto (seed, quantum engine, RNG)
+  ├── Crea controller: def.createController(ctx)
+  │   └── Controller es PURO y DETERMINÍSTICO
+  │
+  └── <Canvas> (React Three Fiber)
+      ├── GameLoop (useFrame @ 60 Hz)
+      │   ├── controller.update(fixedDt, inputSnapshot)
+      │   │   └── [Simulación: física, AI bot, compuertas cuánticas]
+      │   └── publish HudState (throttled ~12 Hz)
+      │
+      ├── Scene (R3F)
+      │   └── controller.getRenderState()
+      │       ├── Posiciones
+      │       ├── Animaciones
+      │       └── Estados de carril/colapso
+      │
+      └── HudRoot (DOM)
+          └── Scores, métricas, estado
+
+[Cuando isFinished()]
+  └── result = controller.computeResult()
+      ├── perPlayer scores
+      └── proof (seed + inputs para validación)
+      
+      → Enviar a Supabase / Edge Function
+```
+
+**Clave:** La simulación corre en un `useRef` mutable (sin re-renders). El HUD se publica throttled para mantener React fluido.
+
+### Input (Singleton)
+
+Teclas pulsadas en un `Set<string>` (no contexto de React porque R3F usa su propio reconciler):
+
+```typescript
+startInput()      // Monta listeners (idempotente)
+buildSnapshot()   // Lee teclas → { p1: { axisX, axisY, buttons }, t }
+controller.update(fixedDt, snapshot)
+```
+
+Bindings:
+- P1: `WASD` (axes) + `Space` (action) + `Shift+L` (superpose)
+- P2: Flechas + `Enter` + `Shift+R`
+
+### State Management (Zustand)
+
+Tres stores:
+- `sessionStore`: seed, difficulty, players (persiste sesión)
+- `gameControlStore`: paused, togglePause
+- `hudStore`: HUD throttled, publish/clear
+
+---
+
+## 🚀 Setup Local
+
+### 1. Requisitos
+
+- **Node.js 22.x** → `node --version`
+- **pnpm 10+** → `npm install -g pnpm@latest`
+- **Git**
+
+### 2. Clonar e Instalar
 
 ```bash
-npm i -g vercel
-cd apps/web && vercel --prod
+git clone https://github.com/[org]/qura-and-friends.git
+cd qura-and-friends
+pnpm install
 ```
 
-### Qué NO va en Vercel
+### 3. Verificar Setup
 
-- **`services/annealing`** (Python/OpenJij) → despliégalo aparte (Railway, Fly.io, Render, Cloud Run) y apunta `ANNEAL_SERVICE_URL` a su URL.
-- **`supabase/`** (migraciones + Edge Functions Deno) → se gestiona con la CLI de Supabase (`supabase db push`, `supabase functions deploy`), no con Vercel.
+```bash
+pnpm typecheck      # TypeScript OK
+pnpm lint           # ESLint OK
+pnpm build          # Build sin errores
+```
 
-> ⚠️ **Assets pesados:** `apps/web/public/` incluye modelos `.glb` de ~63 MB (191 MB en total). Se sirven vía la CDN de Vercel sin problema, pero para acelerar builds y evitar límites conviene moverlos a almacenamiento de objetos (Supabase Storage / Cloudflare R2) y/o **Git LFS**.
+### 4. Desarrollo
+
+```bash
+pnpm dev                    # Todos los servidores
+# http://localhost:3000
+
+# O paquete específico
+cd apps/web && pnpm dev
+cd packages/game-core && pnpm test --watch
+```
+
+Para configuración completa (IDE, CI/CD, debugging), ver [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ---
 
-## Scripts
+## 📦 Scripts Disponibles
 
-Desde la raíz (orquestados por Turborepo):
+| Comando | Qué hace | Scope |
+|---------|----------|-------|
+| `pnpm dev` | Dev servers de todos | Root |
+| `pnpm build` | Build del workspace | Root |
+| `pnpm test` | Suites (Vitest + Node test) | Root |
+| `pnpm typecheck` | `tsc --noEmit` | Root |
+| `pnpm lint` | ESLint | Root |
+| `pnpm clean` | Limpia artefactos | Root |
+| `pnpm --filter web dev` | Dev solo web app | Root |
+| `pnpm --filter @quantum-party/game-core test --watch` | Watch tests | Root |
 
-| Comando | Qué hace |
+---
+
+## 🌐 Despliegue
+
+### Vercel (Frontend)
+
+Solo la app web (`apps/web`) se despliega en Vercel:
+
+1. **Importar repo:** https://vercel.com/new
+2. **Configurar:**
+   - Root Directory: `apps/web`
+   - Node.js: 22.x
+3. **Variables de entorno** (Settings → Environment Variables):
+   ```
+   NEXT_PUBLIC_SUPABASE_URL
+   NEXT_PUBLIC_SUPABASE_ANON_KEY
+   SUPABASE_SERVICE_ROLE_KEY
+   ANNEAL_SERVICE_URL
+   ANNEAL_SERVICE_TOKEN
+   ```
+4. **Deploy:** `git push origin main` automático
+
+> Vercel detecta el workspace pnpm automáticamente.
+
+### Supabase (BDD + Edge Functions)
+
+```bash
+# Local
+supabase start
+
+# Deploy funciones Deno
+supabase functions deploy submit-score --project-id <tu-id>
+supabase functions deploy anneal --project-id <tu-id>
+
+# Aplicar migraciones
+supabase db push
+```
+
+### Servicio de Annealing (Python)
+
+Despliega aparte en Railway, Fly.io, Render o Cloud Run:
+
+```bash
+cd services/annealing
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Ver [services/annealing/README.md](./services/annealing/README.md).
+
+---
+
+## 🧪 Testing
+
+### Tests Unitarios
+
+```bash
+# Quantum engine y game-core (node --test + tsx)
+pnpm test
+
+# Watch mode
+cd packages/game-core && pnpm test --watch
+
+# Cobertura
+pnpm test -- --coverage
+```
+
+### Validación Local
+
+```bash
+pnpm build          # Compilar
+pnpm typecheck      # Tipos OK
+pnpm lint           # Estilo OK
+```
+
+---
+
+## 🔧 Configuración
+
+### TypeScript (Estricto)
+
+```json
+// tsconfig.base.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitAny": true,
+    "paths": {
+      "@quantum-party/*": ["./packages/*/src/index.ts"],
+      "@/*": ["./apps/web/src/*"]
+    }
+  }
+}
+```
+
+### Convenciones de Código
+
+- **Componentes React:** PascalCase, named exports
+- **Funciones/tipos:** camelCase, PascalCase
+- **Constantes:** UPPER_SNAKE_CASE (centralizadas en `packages/schemas/src/constants.ts`)
+- **Imports:** Orden: librerías externas → monorepo → locales
+- **Tipos:** `import type { T }` (reduce bundle)
+
+Para más, ver [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+---
+
+## 🎓 Conceptos Clave
+
+### 1. Determinismo
+
+Mismo seed + inputs → mismo resultado. Crítico para:
+- **Reproducibilidad:** replays de sesiones
+- **Testing:** validar lógica cuántica
+- **Anti-trampa:** validar scores en servidor
+
+Todos los RNG son inyectados y sembrados.
+
+### 2. Separación Lógica ↔ Presentación
+
+- **game-core:** TS puro, determinístico, sin React
+- **apps/web/scenes:** React + R3F, renderiza estados
+- **Contrato `MinigameController`:** define la interfaz
+
+Permite testear sin DOM y reutilizar lógica.
+
+### 3. Game Loop a Paso Fijo (60 Hz)
+
+```typescript
+loop.advance(dt, (fixedDt) => {
+  controller.update(fixedDt, input);
+});
+```
+
+Desacopla simulación (fija) de render (variable) → reproducibilidad.
+
+### 4. HUD Throttled
+
+```typescript
+hudAccumulator += dt;
+if (hudAccumulator >= 0.08) {  // ~12 Hz
+  publish(controller.getHudState());
+  hudAccumulator = 0;
+}
+```
+
+React no re-renderiza a 60 fps, solo a 12 fps → fluidez.
+
+---
+
+## 📚 Recursos y Documentación
+
+| Recurso | Contenido |
 |---------|----------|
-| `pnpm dev` | Arranca todos los procesos `dev` en paralelo |
-| `pnpm build` | Build de todo el workspace (respeta el grafo de dependencias) |
-| `pnpm test` | Ejecuta las suites (`node --test` + `tsx`) |
-| `pnpm typecheck` | `tsc --noEmit` en cada paquete |
-| `pnpm lint` | Lint del workspace |
-| `pnpm clean` | Limpia artefactos y `node_modules` |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Arquitectura técnica, patrones, flujos |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Convenciones, cómo añadir minijuegos, commit messages |
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | Setup dev, scripts, debugging, i18n |
+| [docs/carrera-del-gato-proposito.md](./docs/carrera-del-gato-proposito.md) | Game Design Document |
 
-Por paquete: `pnpm --filter web dev`, `pnpm --filter @quantum-party/quantum-engine test`, etc.
+### Documentación Técnica Oficial
 
----
-
-## Buenas prácticas y convenciones
-
-Estas reglas **no son opcionales**: varias evitan bugs sutiles ya diagnosticados. Verifícalas antes de tocar el código.
-
-- **Paquetes internos consumidos como _fuente_** (no se compilan): `tsconfig` con `noEmit`, sin `composite`/`rootDir`. Next los transpila vía `transpilePackages`.
-- **Imports con extensión `.js`** (por `verbatimModuleSyntax`), incluso para archivos `.ts`/`.tsx`. Webpack necesita `resolve.extensionAlias { ".js": [".ts", ".tsx", ".js"] }` en `next.config.ts`; sin eso el build falla con _"Module not found"_. **Turbopack no está configurado** → usar `next dev`/`next build` (webpack).
-- **R3F no comparte contexto de React** con el `<Canvas>`: usa singletons de módulo (input) o Zustand (HUD), nunca `useContext` cruzando la frontera.
-- **Simulación a 60 Hz mutable** en `useFrame`; el HUD se publica _throttled_ (~12 Hz), jamás a 60 fps.
-- **Edge Functions son Deno**: no pueden importar paquetes pnpm. La validación anti-trampa se **duplica** a propósito en `supabase/functions/_shared/validateEnergy.ts`.
-- **Motor cuántico:** convención **little-endian** (como Qiskit y los docs) y **RNG sembrado e inyectado** — nunca `Math.random` directo.
-- **SVG con floats redondeados** (`round2`) para evitar _hydration mismatch_ entre servidor y cliente.
-- **i18n:** todo el copy vive en `src/i18n/messages/es.json`; los componentes usan `useTranslations`.
-- **Design system:** colores vía tokens CSS (`--color-*`) en `packages/ui/theme.css`, no hex sueltos.
+- [Turborepo](https://turbo.build/repo/docs)
+- [Next.js 15](https://nextjs.org/docs)
+- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber/)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [XState 5](https://stately.ai/docs)
+- [Supabase](https://supabase.com/docs)
 
 ---
 
-## Estabilidad y calidad
+## ⚠️ Buenas Prácticas
 
-- ✅ **Determinismo reproducible:** RNG sembrado inyectado en todo el motor y en los bots → mismas semillas, mismos resultados; imprescindible para tests y para la validación anti-trampa.
-- ✅ **Física verificada:** `quantum-engine` y `game-core` tienen suites con `node --test` + `tsx` (álgebra de estados, compuertas, medición, scoring).
-- ✅ **Anti-trampa:** los scores se validan en la Edge Function con `service_role`; la lógica de energía se duplica en Deno para no confiar en el cliente.
-- ✅ **Seguridad de datos:** Postgres con **Row Level Security**; la `service_role_key` nunca se expone al cliente.
-- ✅ **Accesibilidad:** paleta pensada para contraste AA y segura para daltonismo (crítica en los minijuegos de interferencia); soporte de `prefers-reduced-motion` en toda la app.
-- ✅ **Rendimiento:** separación estricta entre la sim a 60 Hz (mutable) y el estado de UI (throttled) para mantener React fluido.
-- ✅ **CI local:** `pnpm build` genera las rutas estáticas de `apps/web` sin errores; `pnpm typecheck` valida tipos en todo el monorepo.
+### Obligatorias
 
-> **Estado del proyecto:** _MVP en desarrollo activo._ Minijuego plantilla (**cat-race**) funcional; el resto de categorías y el panel docente `(learn)/aula` son **stubs** con la infraestructura (rutas, tablas, Realtime) ya preparada.
+- ✅ **Nunca `any`** en TypeScript
+- ✅ **Lógica core determinística** (usa RNG inyectado)
+- ✅ **Componentes pequeños y enfocados**
+- ✅ **Imports con `.js`** (verbatimModuleSyntax)
+- ✅ **Path aliases** en lugar de `../../../`
+- ✅ **Zustand para state** (nunca `useContext` en Canvas)
 
----
+### Testing
 
-## Rutas de la app
-
-| Ruta | Descripción |
-|------|-------------|
-| `/` | Landing de Qura and Friends |
-| `/board` | Tablero por turnos (partida local 2 jugadores) |
-| `/play/[minigameId]` | Minijuego activo (escena 3D + HUD) |
-| `/results` | Resultados de la partida |
-| `/lab/[conceptId]` | Laboratorio cuántico (esfera de Bloch, compuertas) |
-| `/aula` | Panel docente en tiempo real _(stub)_ |
-| `/api/anneal`, `/api/score` | Route handlers → Edge Functions |
+- ✅ Toda lógica `game-core` tiene tests
+- ✅ Funciones puras son testables
+- ✅ Seed inyectado en tests
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
-- [ ] Minijuegos de las Categorías 2–4 (entrelazamiento, interferencia, annealing).
-- [ ] Panel docente `(learn)/aula` en vivo con Supabase Realtime.
-- [ ] Ampliar el _curriculum_ trazable a `qbronze_docs` / `qsilver_docs`.
-- [ ] Modo multi-locale (la estructura i18n ya lo permite).
+- [ ] Minijuegos Categoría 2 (Entrelazamiento)
+- [ ] Minijuegos Categoría 3 (Interferencia)
+- [ ] Minijuegos Categoría 4 (Quantum Annealing)
+- [ ] Panel docente (Learn / Aula)
+- [ ] Soporte multijugador en red (opcional)
+- [ ] Mobile (responsive UI)
+
+---
+
+## 📄 Licencia
+
+MIT. Libre para usar, modificar y distribuir.
+
+---
+
+## 🙋 Preguntas o Sugerencias
+
+- **Issues:** GitHub Issues
+- **Discussions:** GitHub Discussions
+- **Seguridad:** Email privado (no public issues)
+
+**¡Contribuciones bienvenidas!** Ver [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 
 <div align="center">
-<sub>Hecho con ⚛️ para acercar la computación cuántica a quienes empiezan.</sub>
+
+🚀 **Hecho con ❤️ en una hackathon. Refactorizado y documentado para el futuro.**
+
 </div>

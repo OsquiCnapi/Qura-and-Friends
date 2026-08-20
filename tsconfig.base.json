@@ -1,30 +1,62 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    // Compilación
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "moduleDetection": "force",
+
+    // Resolución de módulos
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+
+    // Seguridad de tipos (STRICT MODE)
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    // Otros
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Path aliases (@quantum-party/* para packages, @/* para apps/web)
     "paths": {
+      // Quantum Party packages (monorepo)
       "@quantum-party/quantum-engine": ["./packages/quantum-engine/src/index.ts"],
-      "@quantum-party/quantum-engine/annealing": ["./packages/quantum-engine/src/annealing/index.ts"],
+      "@quantum-party/quantum-engine/*": ["./packages/quantum-engine/src/*"],
+      
       "@quantum-party/game-core": ["./packages/game-core/src/index.ts"],
+      "@quantum-party/game-core/*": ["./packages/game-core/src/*"],
+      
       "@quantum-party/quantum-viz": ["./packages/quantum-viz/src/index.ts"],
+      "@quantum-party/quantum-viz/*": ["./packages/quantum-viz/src/*"],
+      
       "@quantum-party/curriculum": ["./packages/curriculum/src/index.ts"],
+      "@quantum-party/curriculum/*": ["./packages/curriculum/src/*"],
+      
       "@quantum-party/schemas": ["./packages/schemas/src/index.ts"],
-      "@quantum-party/ui": ["./packages/ui/src/index.ts"]
+      "@quantum-party/schemas/*": ["./packages/schemas/src/*"],
+      
+      "@quantum-party/ui": ["./packages/ui/src/index.ts"],
+      "@quantum-party/ui/*": ["./packages/ui/src/*"]
     }
-  }
+  },
+  "include": ["apps/**/*", "packages/**/*"],
+  "exclude": ["node_modules", "dist", ".next", "**/*.test.ts"]
 }

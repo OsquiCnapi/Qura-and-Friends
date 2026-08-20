@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "denoland.vscode-deno",
+    "ms-python.python",
+    "Prisma.prisma",
+    "GraphQL.vscode-graphql",
+    "eamodio.gitlens",
+    "GitHub.copilot",
+    "ms-vscode.makefile-tools"
+  ]
+}
