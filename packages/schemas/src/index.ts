@@ -77,6 +77,26 @@ export const ClassroomCodeSchema = z
   .toUpperCase()
   .regex(/^[A-HJ-NP-Z2-9]{6}$/, "código de 6 caracteres (sin O, 0, I, 1)");
 
+/**
+ * Signup/login de Aula (email + contraseña). Validación de UX únicamente — la contraseña la hashea
+ * Supabase Auth (bcrypt) en su backend, nunca pasa por nuestro código en texto plano más de lo
+ * estrictamente necesario para el POST inicial sobre TLS. El mínimo de 8 caracteres es más estricto que
+ * el default de Supabase (6) solo para dar un mejor mensaje antes de pegarle al servidor.
+ */
+export const SignUpSchema = z.object({
+  email: z.string().trim().email("email inválido"),
+  password: z.string().min(8, "mínimo 8 caracteres"),
+  role: RoleSchema,
+  displayName: z.string().trim().min(1, "elegí un nombre").max(60),
+});
+export type SignUpInput = z.infer<typeof SignUpSchema>;
+
+export const SignInSchema = z.object({
+  email: z.string().trim().email("email inválido"),
+  password: z.string().min(1, "ingresá tu contraseña"),
+});
+export type SignInInput = z.infer<typeof SignInSchema>;
+
 /** Fila de progreso por concepto (espejo de la tabla Postgres `progress`). */
 export const ProgressRowSchema = z.object({
   minigameId: z.string(),

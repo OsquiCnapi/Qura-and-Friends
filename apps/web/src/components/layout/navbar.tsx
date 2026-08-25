@@ -2,6 +2,19 @@
 
 import { motion } from "motion/react";
 import { springs } from "@/lib/motion.js";
+import { useAuthStore } from "@/state/authStore.js";
+
+/**
+ * Texto del botón de Aula según quién esté mirando — la etiqueta es puro adorno de UX, la autorización
+ * real la decide el servidor cuando se llega a /aula (ver docs/auth-permissions.md). Sin cuenta real
+ * (incluye el estado por defecto: sesión anónima de juego) invita a loguearse; con cuenta real, el
+ * texto ya adelanta la acción principal de cada rol.
+ */
+function useAulaLabel(): string {
+  const { isAnonymous, role } = useAuthStore();
+  if (isAnonymous) return "Iniciar sesión";
+  return role === "teacher" ? "Administrar aulas" : "Unirse a Aula";
+}
 
 function Chevron() {
   return (
@@ -42,11 +55,10 @@ function LogoMark() {
 const NAV_LINKS = [
   { label: "Cómo se juega", hasMenu: true },
   { label: "Conceptos", hasMenu: true },
-  // Único enlace real de la lista: los otros dos son placeholders de un menú desplegable futuro.
-  { label: "Aula", hasMenu: false, href: "/aula" },
 ];
 
 export function Navbar() {
+  const aulaLabel = useAulaLabel();
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-quantum-border)] bg-[var(--color-quantum-bg)]/80 backdrop-blur-md">
       <nav className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
@@ -56,26 +68,22 @@ export function Navbar() {
           </a>
 
           <div className="hidden items-center gap-6 md:flex">
-            {NAV_LINKS.map((link) =>
-              link.href ? (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
-                >
-                  {link.label}
-                </a>
-              ) : (
-                <button
-                  key={link.label}
-                  type="button"
-                  className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
-                >
-                  {link.label}
-                  {link.hasMenu && <Chevron />}
-                </button>
-              ),
-            )}
+            {NAV_LINKS.map((link) => (
+              <button
+                key={link.label}
+                type="button"
+                className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
+              >
+                {link.label}
+                {link.hasMenu && <Chevron />}
+              </button>
+            ))}
+            <a
+              href="/aula"
+              className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
+            >
+              {aulaLabel}
+            </a>
           </div>
         </div>
 

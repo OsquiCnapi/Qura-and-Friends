@@ -331,7 +331,92 @@ esto — vale la pena revisar los nombres antes de escribir el cuerpo, no despu�
 
 ---
 
-## 5. Teoría aplicada (resumen)
+## 5. Cuentas reales: email + contraseña, con verificación
+
+Todo lo de arriba (RLS, RBAC, `classroom_members`) funcionaba igual con una sesión anónima que con una
+real — a propósito, para que el diseño no dependiera de CÓMO se demostró la identidad. Pero para Aula
+específicamente, "cualquiera con el navegador abierto" dejó de ser suficiente: hace falta que un docente
+y un alumno sean personas identificables de verdad, con un email al que se les pueda escribir. Eso vive
+en [0007_email_auth.sql](../supabase/migrations/0007_email_auth.sql) y no reemplaza la identidad anónima
+— la complementa: el juego sigue sin pedir login, Aula ahora sí lo exige.
+
+### 5.1 La contraseña nunca la tocamos nosotros
+
+Cuando alguien crea una cuenta con `supabase.auth.signUp({ email, password })`, la contraseña viaja una
+vez sobre TLS hasta el servidor de Supabase Auth (GoTrue) y ahí se hashea con bcrypt antes de tocar
+disco — nuestro código, en ningún punto, ve ni guarda esa contraseña. Esto no es una simplificación por
+pereza: es la práctica correcta. Implementar el propio hashing de contraseñas (elegir el algoritmo, el
+salt, el costo) es exactamente el tipo de cosa que un equipo de seguridad marca como riesgo cuando lo ve
+hecho a mano — usar un proveedor de auth auditado para esa pieza es la respuesta esperada, no un atajo.
+
+Supabase además exige, antes de dejar loguearse con esa cuenta, que el email se **confirme** — un click
+en un link que Supabase manda solo (`mailer_autoconfirm: false`, que ya estaba activo en este proyecto).
+Mientras no se confirma, `signInWithPassword` rechaza con "Email not confirmed": nuestro código ni
+siquiera necesita revisar `email_confirmed_at` a mano, la garantía la da el backend antes de entregar
+sesión.
+
+### 5.2 De dónde sale el rol inicial
+
+`handle_new_user` (el trigger de 0004 que crea la fila en `profiles` al mismo tiempo que se crea el
+`auth.users`) ahora lee `raw_user_meta_data` — exactamente lo que el cliente manda en
+`options.data` de `signUp(...)`:
+
+```typescript
+await supabase.auth.signUp({
+  email, password,
+  options: { data: { role, display_name: displayName } },
+});
+```
+
+Sigue siendo **autodeclarado** — nada verifica que quien tildó "Soy docente" sea de verdad profesor de
+algún lado (ver §0: ese es un problema de identidad institucional, no de este esquema). Lo único que
+cambió es CUÁNDO se declara: antes, al crear la primera aula (`become_teacher()`); ahora, en el signup.
+El guard contra escalada de privilegios (`profiles_guard_role_trigger`, 0004) sigue exactamente igual —
+nadie puede pasar de alumno a docente con un `UPDATE` después del hecho, esto solo afecta el valor
+inicial del `INSERT`.
+
+### 5.3 Cerrar Aula a sesiones anónimas — en el servidor, no en la UI
+
+Antes de esta migración, `become_teacher()` y `join_classroom_by_code()` aceptaban cualquier sesión
+válida — incluida la anónima que `AuthBootstrap` crea para CUALQUIERA que abra la app. La UI podía
+ocultar los botones, pero un POST directo a la API los seguía dejando pasar. El cierre real usa el claim
+`is_anonymous` que Supabase agrega al JWT específicamente para este caso:
+
+```sql
+if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, true) then
+  raise exception 'necesitas una cuenta con email verificado para ser docente';
+end if;
+```
+
+`coalesce(..., true)` es deliberado: si por lo que sea el claim no estuviera presente, la función falla
+cerrada (trata la ausencia como "es anónimo") en vez de fallar abierta. La misma guardia se agregó a
+`join_classroom_by_code()` y a la policy `classrooms_insert_teacher` (esta última además de la función,
+por si alguna vía de inserción futura no pasara por la función). Lo verifiqué probando contra el
+proyecto real: una sesión anónima que antes podía crear aulas y unirse, después de este cambio recibe
+`403`/`P0001` en los tres intentos — ver el historial de esta conversación para los tres curls exactos.
+
+### 5.4 Un alumno ve a sus compañeros, no solo su propia fila
+
+`classroom_members_select` (0005) solo dejaba ver la propia fila o, si eras el docente dueño, todas. Un
+alumno normal no podía ver a nadie más del aula — que es exactamente lo que este feature necesitaba
+resolver. La policy se amplió reutilizando `is_classroom_member()` (la misma función que 0005 ya había
+creado para romper la recursión de RLS, ahora con un segundo uso):
+
+```sql
+create policy "classroom_members_select" on public.classroom_members for select
+  using (
+    public.is_classroom_host(classroom_id, auth.uid())
+    or public.is_classroom_member(classroom_id, auth.uid())
+  );
+```
+
+El progreso (`progress`) NO se amplió de la misma forma — un alumno sigue sin poder ver las estrellas de
+sus compañeros, solo el docente puede (`progress_select_teacher`, sin cambios). Ver nombres de
+compañeros es una cosa; ver el desempeño de otros es otra, y nadie pidió lo segundo.
+
+---
+
+## 6. Teoría aplicada (resumen)
 
 | Principio / modelo | Dónde aparece en el repo |
 |---|---|
@@ -346,43 +431,48 @@ esto — vale la pena revisar los nombres antes de escribir el cuerpo, no despu�
 | **Trusted subsystem / anti "confused deputy"** | Funciones `SECURITY DEFINER` con `search_path` fijo como único camino para mutar datos ajenos |
 | **Defensa en profundidad** | RLS en la tabla + revalidación de negocio en la función (`join_classroom_by_code` no confía en que el código "suene bien", lo resuelve contra la tabla real; `submit-score` no confía en el score, recomputa la energía) |
 | **Least astonishment en el cliente** | `useAuthStore.role` es solo para UI — documentado explícitamente para que nadie, en un refactor futuro, lo use como si fuera la autorización real |
+| **No implementar tu propio crypto** | Contraseñas hasheadas por Supabase Auth (bcrypt) — nunca pasan por nuestro código ni se guardan acá |
+| **Fail-safe en la ausencia de un dato** | `coalesce((auth.jwt()->>'is_anonymous')::boolean, true)` — si el claim faltara, se trata como anónimo (cierra), no como real (abre) |
 
 ---
 
-## 6. Cómo escalaría esto en producción
+## 7. Cómo escalaría esto en producción
 
 Ordenado aproximadamente de "lo haría antes de lanzar con usuarios reales" a "lo haría si el producto
 crece mucho":
 
-1. **Identidad real para docentes.** Auth anónima está bien para alumnos, pero un docente que administra
-   un aula real querría no perder su cuenta al borrar cookies. Camino natural con Supabase: `linkIdentity`
-   para "elevar" la sesión anónima a un login con email/magic-link *sin perder el `auth.uid()`* (y por
-   tanto sin perder sus aulas ya creadas). Para un despliegue institucional, SSO (Google Workspace for
-   Education / SAML) sería el siguiente paso — ahí sí se podría verificar "es de verdad profesor de este
-   colegio" antes de conceder el rol, en vez del `become_teacher()` autoservicio actual.
-2. **Rol en el JWT, no en una tabla.** Hoy `is_teacher()` hace una lectura a `profiles` en cada policy
+1. ~~Identidad real para docentes.~~ **Hecho** (§5) — email + contraseña, verificado. El siguiente paso
+   natural para un despliegue institucional sería SSO (Google Workspace for Education / SAML): ahí sí se
+   podría verificar "es de verdad profesor de este colegio" antes de conceder el rol, en vez del
+   autoservicio actual (elegir el rol en el signup, sin verificación externa).
+2. **SMTP propio.** El mailer compartido de Supabase (el que usa este proyecto) tiene un rate limit bajo
+   pensado para desarrollo — lo suficientemente bajo como para que probando el signup un par de veces
+   seguidas desde la API ya devuelva `over_email_send_rate_limit` (me pasó armando esto). Para producción
+   hace falta un proveedor SMTP propio (Resend, Postmark, SES) configurado en el dashboard — sin eso, un
+   pico real de registros (el primer día de clase, por ejemplo) se queda sin poder mandar confirmaciones.
+3. **Rol en el JWT, no en una tabla.** Hoy `is_teacher()` hace una lectura a `profiles` en cada policy
    que la usa. Para escalar performance, Supabase permite un *Custom Access Token Hook* que copie
    `profiles.role` a un claim del JWT (`auth.jwt() ->> 'role'`) al emitir el token — las policies pasan
    de un `EXISTS` con JOIN a una comparación de string, sin round-trip. El costo es que el rol queda
    "congelado" hasta que el token se refresca; para este dominio (roles que cambian con poca frecuencia)
    es un buen trade-off.
-3. **Auditoría.** Una tabla `audit_log(actor_id, action, target_table, target_id, at)` alimentada desde
+4. **Auditoría.** Una tabla `audit_log(actor_id, action, target_table, target_id, at)` alimentada desde
    las funciones `SECURITY DEFINER` (`become_teacher`, `join_classroom_by_code`) — barato de añadir
    porque ya son el único punto de paso de esas acciones, y da trazabilidad real para soporte/disputas
    ("¿quién se unió a mi aula y cuándo?").
-4. **Rate limiting / anti-abuso.** `join_classroom_by_code` no tiene límite de intentos hoy — alguien
+5. **Rate limiting / anti-abuso.** `join_classroom_by_code` no tiene límite de intentos hoy — alguien
    podría fuerza-bruta probar códigos de 6 caracteres. Con `pg_cron` + una tabla de intentos, o con
    rate limiting en el borde (Supabase Edge Functions / Cloudflare), se cerraría. El espacio de códigos
    (32^6 ≈ 10^9) hace esto de baja prioridad para el tamaño actual, pero es lo primero que rompería con
    tráfico real.
-5. **Co-docentes y roles intra-aula más ricos.** `classroom_members.role_in_classroom` ya está separado
+6. **Co-docentes y roles intra-aula más ricos.** `classroom_members.role_in_classroom` ya está separado
    de `profiles.role` justamente para esto: añadir `'assistant'` (ve el roster, no puede borrar el aula)
    es un `check` constraint nuevo + una policy nueva, sin tocar el resto del modelo.
-6. **ABAC para reglas más finas.** Ejemplos que dejarían de caber en "rol + relación": códigos de aula
+7. **ABAC para reglas más finas.** Ejemplos que dejarían de caber en "rol + relación": códigos de aula
    con expiración, aulas archivadas de solo-lectura, límite de alumnos por aula gratuita vs. de pago. El
    patrón natural es Attribute-Based Access Control — condiciones sobre atributos de la fila
    (`classrooms.expires_at`, `classrooms.plan`) dentro de la misma policy, sin nuevas tablas.
-7. **Tests de RLS en CI.** [pgTAP](https://pgtap.org/) permite escribir tests que se autentican como
+8. **Tests de RLS en CI.** [pgTAP](https://pgtap.org/) permite escribir tests que se autentican como
    distintos `auth.uid()` simulados y verifican que una policy deniega/permite lo esperado — hoy estas
    policies solo están probadas manualmente. Es la pieza que más valdría la pena añadir a continuación:
    un cambio futuro en una policy que rompa el aislamiento entre alumnos se detectaría en CI, no en
@@ -390,28 +480,37 @@ crece mucho":
 
 ---
 
-## 7. Cómo probarlo localmente
+## 8. Cómo probarlo localmente
 
 ```bash
 # Requiere Supabase CLI (no incluida en este repo/entorno de desarrollo)
 supabase start                 # levanta Postgres + Auth + Realtime local
-supabase migration up          # aplica 0001…0004 en orden
+supabase migration up          # aplica 0001…0007 en orden
 cp .env.example apps/web/.env.local   # y completa con las keys que imprime `supabase start`
 pnpm dev
 ```
 
-Prueba manual mínima de RBAC: entra a `/aula` en dos pestañas (dos sesiones anónimas distintas), crea un
-aula en la primera, copia el código, únete desde la segunda, y confirma que el docente ve al alumno en el
-roster pero el alumno no puede ver el roster de la pestaña del docente (RLS se lo impide aunque conozca
-el `classroom_id`).
+Prueba manual del flujo completo: entrá a `/aula` — sin cuenta real vas a ver el gate de login/signup
+(la sesión anónima de fondo no cuenta). Registrate como docente con un email real (Supabase manda un
+link de confirmación de verdad — hace falta poder abrirlo), confirmá, creá un aula, copiá el código. En
+otra pestaña/incógnito, registrate como alumno con otro email, confirmá, unite con el código — deberías
+ver inmediatamente el aula y, en la pestaña del docente, aparecer en el roster con sus estrellas. Probá
+también que una sesión anónima (sin loguearte) no pueda hacer nada de esto — ver §5.3 para los curls que
+lo confirman contra la API directamente, sin depender del navegador.
 
-## 8. Archivos de esta feature
+## 9. Archivos de esta feature
 
-- `supabase/migrations/0004_rbac.sql` — el esquema (fuente de verdad de la autorización)
+- `supabase/migrations/0004_rbac.sql` — el esquema RBAC (fuente de verdad de la autorización)
 - `supabase/migrations/0005_fix_rls_recursion.sql` — corrige la recursión de RLS entre `classrooms` y `classroom_members` (§4.5)
 - `supabase/migrations/0006_fix_join_ambiguous_column.sql` — corrige la columna ambigua en `join_classroom_by_code` (§4.6)
+- `supabase/migrations/0007_email_auth.sql` — cuentas reales, gate anti-anónimos, visibilidad de compañeros (§5)
 - `apps/web/src/middleware.ts`, `apps/web/src/lib/supabase/middleware.ts` — refresco de sesión SSR
-- `apps/web/src/auth/AuthBootstrap.tsx`, `apps/web/src/state/authStore.ts` — identidad en el cliente
+- `apps/web/src/auth/AuthBootstrap.tsx`, `apps/web/src/state/authStore.ts` — identidad en el cliente (anónima + real)
+- `apps/web/src/lib/supabase/auth.ts` — signup/login/logout con email real
 - `apps/web/src/lib/supabase/classrooms.ts` — acceso a datos (RPCs + queries), separado de la UI
-- `apps/web/src/app/(learn)/aula/page.tsx` — UI del dashboard docente / unirse por código
-- `packages/schemas/src/index.ts` — `RoleSchema`, `ClassroomCodeSchema` (validación de UX, no de seguridad)
+- `apps/web/src/app/(learn)/aula/page.tsx` — orquestador: decide gate/docente/alumno
+- `apps/web/src/app/(learn)/aula/AuthGate.tsx` — formulario de login/signup
+- `apps/web/src/app/(learn)/aula/TeacherDashboard.tsx` — "Administrar aulas"
+- `apps/web/src/app/(learn)/aula/StudentDashboard.tsx` — "Mis aulas" / unirse por código
+- `apps/web/src/components/layout/navbar.tsx` — botón dinámico según sesión/rol
+- `packages/schemas/src/index.ts` — `RoleSchema`, `ClassroomCodeSchema`, `SignUpSchema`, `SignInSchema` (validación de UX, no de seguridad)

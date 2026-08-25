@@ -444,13 +444,18 @@ assert(result.perPlayer[0].score === result2.perPlayer[0].score)
 
 ## 🔑 Auth & Permisos
 
-Identidad **anónima por dispositivo** (Supabase Auth `signInAnonymously`, sin login) + autorización en dos capas:
+Dos niveles de identidad: **anónima por dispositivo** (Supabase Auth `signInAnonymously`, sin login) para
+el juego, y **cuenta real con email verificado** (`supabase/migrations/0007_email_auth.sql`) para Aula —
+docente/alumno se elige en el signup y queda fijo salvo por las vías controladas de abajo. Autorización
+en capas:
 
 1. **RLS** (`supabase/migrations/0002_rls.sql`) — cada quien lee/edita SUS propias filas (`auth.uid()`).
 2. **RBAC** (`supabase/migrations/0004_rbac.sql`) — un rol global (`profiles.role`: `student`/`teacher`) más
    `classroom_members` para relación aula↔alumno, con toda mutación que cruza filas de otro usuario
    (unirse a un aula, otorgarse el rol docente) mediada por funciones `SECURITY DEFINER`, nunca por
    INSERT/UPDATE directo del cliente — el mismo principio que ya usaba `submit-score` con `service_role`.
+3. **Gate anti-anónimos** (`0007`) — el claim `is_anonymous` del JWT bloquea, en el servidor, que una
+   sesión de juego use las funciones de Aula, sin importar lo que muestre la UI.
 
 Explicación completa (teoría aplicada, diagramas de flujo, cómo escalar) en **[docs/auth-permissions.md](docs/auth-permissions.md)**.
 
