@@ -62,6 +62,21 @@ export const AnnealResponseSchema = z.object({
 });
 export type AnnealResponse = z.infer<typeof AnnealResponseSchema>;
 
+/**
+ * Rol RBAC (espejo del CHECK de `profiles.role` en 0004_rbac.sql). Validar esta forma en el cliente es
+ * solo comodidad de UX (mensaje de error inmediato) — la autoridad real es el CHECK constraint y las
+ * policies de RLS; este schema NUNCA debe usarse para decidir si algo se muestra o se permite.
+ */
+export const RoleSchema = z.enum(["student", "teacher"]);
+export type Role = z.infer<typeof RoleSchema>;
+
+/** Código de aula tal como lo genera `lib/supabase/classrooms.ts` (6 caracteres, sin O/0/I/1). */
+export const ClassroomCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-HJ-NP-Z2-9]{6}$/, "código de 6 caracteres (sin O, 0, I, 1)");
+
 /** Fila de progreso por concepto (espejo de la tabla Postgres `progress`). */
 export const ProgressRowSchema = z.object({
   minigameId: z.string(),

@@ -29,6 +29,11 @@ enabled = true
 
 [functions.submit-score]
 verify_jwt = true
+# Sin esto, `supabase functions deploy` no sube functions/deno.json como asset y el bundler remoto
+# rompe con "Relative import path @supabase/supabase-js not prefixed with / or ./ or ../" (el import
+# map que resuelve ese specifier vive ahí). Ver también deno.json en este mismo directorio.
+import_map = "./functions/deno.json"
 
 [functions.anneal]
 verify_jwt = true
+import_map = "./functions/deno.json"

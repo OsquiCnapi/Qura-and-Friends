@@ -42,7 +42,8 @@ function LogoMark() {
 const NAV_LINKS = [
   { label: "Cómo se juega", hasMenu: true },
   { label: "Conceptos", hasMenu: true },
-  { label: "Aula", hasMenu: false },
+  // Único enlace real de la lista: los otros dos son placeholders de un menú desplegable futuro.
+  { label: "Aula", hasMenu: false, href: "/aula" },
 ];
 
 export function Navbar() {
@@ -55,16 +56,26 @@ export function Navbar() {
           </a>
 
           <div className="hidden items-center gap-6 md:flex">
-            {NAV_LINKS.map((link) => (
-              <button
-                key={link.label}
-                type="button"
-                className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
-              >
-                {link.label}
-                {link.hasMenu && <Chevron />}
-              </button>
-            ))}
+            {NAV_LINKS.map((link) =>
+              link.href ? (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <button
+                  key={link.label}
+                  type="button"
+                  className="flex items-center gap-1 text-[13.5px] font-medium text-[var(--color-quantum-muted)] transition-colors hover:text-[var(--color-quantum-text)]"
+                >
+                  {link.label}
+                  {link.hasMenu && <Chevron />}
+                </button>
+              ),
+            )}
           </div>
         </div>
 
