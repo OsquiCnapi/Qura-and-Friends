@@ -5,15 +5,13 @@ import { createClient } from "@/lib/supabase/client.js";
 import { useAuthStore, type Role } from "@/state/authStore.js";
 
 /**
- * Monta la identidad del dispositivo al arrancar la app. No hay pantalla de login: el público son
- * niños jugando en un dispositivo compartido en el aula, así que la identidad es **anónima por
- * dispositivo** (`supabase.auth.signInAnonymously`) — RLS y RBAC funcionan igual con un usuario anónimo
- * que con uno "real" porque ambos tienen un `auth.uid()` válido; lo único que cambia es cómo se
- * demostró la identidad, no qué puede hacer con ella (separación autenticación/autorización, ver
- * docs/auth-permissions.md).
+ * Monta la identidad al arrancar la app. El juego sigue sin pantalla de login — sigue usando identidad
+ * **anónima por dispositivo** (`supabase.auth.signInAnonymously`) para que un chico pueda jugar sin
+ * fricción. Lo que cambió (ver docs/auth-permissions.md) es que Aula ahora exige una cuenta real: este
+ * componente no decide eso, solo mantiene `useAuthStore` sincronizado con lo que sea que haya en el
+ * cliente de Supabase — sesión anónima, o una cuenta real después de un login/signup en `/aula`.
  *
- * Sin componente. Se monta una vez en el layout raíz y escribe el resultado en `useAuthStore` para que
- * cualquier página lo lea sin tener que repetir esta lógica.
+ * Sin componente. Se monta una vez en el layout raíz.
  */
 export function AuthBootstrap() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -24,9 +22,9 @@ export function AuthBootstrap() {
     const supabase = createClient();
     let cancelled = false;
 
-    async function loadProfile(userId: string) {
-      // El trigger `handle_new_user` (0004_rbac.sql) ya creó esta fila en la misma transacción del
-      // alta en auth.users, así que no hay carrera entre "usuario creado" y "profile disponible".
+    async function loadProfile(userId: string, isAnonymous: boolean, email: string | null) {
+      // El trigger `handle_new_user` (0004/0007) ya creó esta fila en la misma transacción del alta en
+      // auth.users, así que no hay carrera entre "usuario creado" y "profile disponible".
       const { data, error } = await supabase
         .from("profiles")
         .select("role, display_name")
@@ -37,32 +35,43 @@ export function AuthBootstrap() {
         setError(error?.message ?? "no se pudo cargar el perfil");
         return;
       }
-      setSession({ userId, role: data.role as Role, displayName: data.display_name });
+      setSession({ userId, role: data.role as Role, displayName: data.display_name, email, isAnonymous });
+    }
+
+    async function ensureAnonymousSession() {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (cancelled) return;
+      if (error || !data.user) {
+        setError(error?.message ?? "no se pudo iniciar sesión anónima");
+        return;
+      }
+      await loadProfile(data.user.id, true, null);
     }
 
     async function bootstrap() {
       setStatus("loading");
       const { data: sessionData } = await supabase.auth.getSession();
-      let userId = sessionData.session?.user.id ?? null;
+      const user = sessionData.session?.user;
 
-      if (!userId) {
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error || !data.user) {
-          setError(error?.message ?? "no se pudo iniciar sesión anónima");
-          return;
-        }
-        userId = data.user.id;
+      if (!user) {
+        await ensureAnonymousSession();
+        return;
       }
-
-      await loadProfile(userId);
+      await loadProfile(user.id, user.is_anonymous ?? true, user.email ?? null);
     }
 
     void bootstrap();
 
-    // Si el token se renueva (o el usuario hace login "de verdad" más adelante) mantenemos el store
-    // sincronizado sin recargar la página.
+    // Cubre tres casos: (1) el token se renueva solo, (2) un login/signup real en /aula reemplaza la
+    // sesión anónima por una con email, (3) un signOut() explícito deja al cliente sin sesión — en ese
+    // caso volvemos a entrar como anónimo de inmediato para que el resto de la app (el juego) no se
+    // quede sin identidad.
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) void loadProfile(session.user.id);
+      if (session?.user) {
+        void loadProfile(session.user.id, session.user.is_anonymous ?? false, session.user.email ?? null);
+      } else {
+        void ensureAnonymousSession();
+      }
     });
 
     return () => {
