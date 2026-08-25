@@ -180,7 +180,7 @@ begin
   if not found then raise exception 'código de aula inválido'; end if;
   insert into public.classroom_members (classroom_id, user_id, role_in_classroom)
   values (v_classroom.id, auth.uid(), 'student')
-  on conflict (classroom_id, user_id) do nothing;
+  on conflict on constraint classroom_members_pkey do nothing;  -- ver §4.6, por qué no un column list
   return query select v_classroom.id, v_classroom.name;
 end; $$;
 ```
@@ -293,6 +293,42 @@ par de policies en tablas distintas que se consultan mutuamente es candidato a e
 de alarma es reconocible de antemano — si escribís la policy de A pensando "para esto necesito mirar B"
 y la de B fue "para esto necesito mirar A", ya hay un ciclo antes de correr una sola query.
 
+### 4.6 Otro bug real: columna ambigua por el nombre del `RETURNS TABLE`
+
+Al probar el flujo de "unirse a un aula" de verdad (crear un aula y unirse desde otra sesión), el join
+falló con:
+
+```
+ERROR: column reference "classroom_id" is ambiguous
+```
+
+La causa es un gotcha clásico de PL/pgSQL, distinto del de RLS: `join_classroom_by_code` está declarada
+como `returns table (classroom_id uuid, classroom_name text)`. Eso no es solo el nombre de las columnas
+de salida — **convierte `classroom_id` en una variable visible en todo el cuerpo de la función**, al
+mismo nivel que cualquier `declare`. Más abajo, el INSERT hacía:
+
+```sql
+on conflict (classroom_id, user_id) do nothing;
+```
+
+y ahí `classroom_id` quedó ambiguo: ¿la variable de retorno de la función, o la columna de
+`classroom_members`? Postgres no puede decidir y aborta. No apareció al probarlo por API la primera vez
+porque esa prueba nunca disparó el `ON CONFLICT` (nadie más se había unido todavía) — con un segundo
+usuario uniéndose a una fila que el trigger de bienvenida del docente ya insertó, el conflicto sí ocurre
+y ahí explota.
+
+El arreglo ([0006_fix_join_ambiguous_column.sql](../supabase/migrations/0006_fix_join_ambiguous_column.sql))
+apunta el conflicto por el **nombre de la constraint** en vez de por lista de columnas:
+
+```sql
+on conflict on constraint classroom_members_pkey do nothing;
+```
+
+Esa forma no menciona ningún identificador de columna suelto, así que no hay nada que colisione con la
+variable. Regla general para evitar esto de entrada: en cualquier función PL/pgSQL, si un parámetro o un
+`RETURNS TABLE` comparte nombre con una columna real de una tabla que la función toca, es candidato a
+esto — vale la pena revisar los nombres antes de escribir el cuerpo, no después de que falle.
+
 ---
 
 ## 5. Teoría aplicada (resumen)
@@ -373,6 +409,7 @@ el `classroom_id`).
 
 - `supabase/migrations/0004_rbac.sql` — el esquema (fuente de verdad de la autorización)
 - `supabase/migrations/0005_fix_rls_recursion.sql` — corrige la recursión de RLS entre `classrooms` y `classroom_members` (§4.5)
+- `supabase/migrations/0006_fix_join_ambiguous_column.sql` — corrige la columna ambigua en `join_classroom_by_code` (§4.6)
 - `apps/web/src/middleware.ts`, `apps/web/src/lib/supabase/middleware.ts` — refresco de sesión SSR
 - `apps/web/src/auth/AuthBootstrap.tsx`, `apps/web/src/state/authStore.ts` — identidad en el cliente
 - `apps/web/src/lib/supabase/classrooms.ts` — acceso a datos (RPCs + queries), separado de la UI
